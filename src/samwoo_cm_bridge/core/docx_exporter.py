@@ -290,16 +290,19 @@ class DocxExporter:
                     if r_idx % 2 == 1:
                         set_cell_background(cell, "F7FAFC")
 
-                    # Highlight PASS / FAIL badges
+                    # Highlight PASS / FAIL badges and Source Anchors
                     for run in p.runs:
                         run.font.name = "맑은 고딕"
                         run.font.size = Pt(9.0)
-                        if "PASS" in run.text or "적합" in run.text:
+                        if "PASS" in run.text or "적합" in run.text or "RECEIVED" in run.text:
                             run.font.bold = True
                             run.font.color.rgb = RGBColor(0x27, 0x67, 0x49)  # Green
-                        elif "FAIL" in run.text or "부적합" in run.text:
+                        elif "FAIL" in run.text or "부적합" in run.text or "MISSING" in run.text:
                             run.font.bold = True
                             run.font.color.rgb = RGBColor(0xC5, 0x30, 0x30)  # Red
+                        elif "출처" in run.text or "L" in run.text and ("char" in run.text or "Table" in run.text or "R" in run.text):
+                            run.font.size = Pt(8.0)
+                            run.font.color.rgb = RGBColor(0x4A, 0x55, 0x68)  # Slate Gray
 
         doc.add_paragraph()  # Spacer
 

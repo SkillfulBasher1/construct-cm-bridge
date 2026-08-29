@@ -31,6 +31,7 @@ from .core.inspection_ncr_generator import (
     generate_inspection_sheet,
     draft_ncr_correction_order,
 )
+from .core.custom_requirement_auditor import audit_custom_spec_requirements
 
 
 def cmd_serve(args):
@@ -723,6 +724,132 @@ def main():
     p_insp.add_argument("location", help="Location (e.g. '지하 2층 1구역')")
     p_insp.add_argument("--spec", "-s", default="", help="Specification")
 
+def cmd_audit_req(args):
+    """Audit custom spec submission requirements against local files."""
+    res = audit_custom_spec_requirements(
+        spec_file=args.spec,
+        target_work_type=args.work_type,
+        project_name=args.project,
+    )
+    print("\n" + "=" * 70)
+    print(f"[특기시방 요구 제출도서 점검 완료] 종합 결과: {res.get('overall_verdict')}")
+    print("=" * 70)
+    print(f"- 기준 시방서: {res.get('spec_file')}")
+    print(f"- 총 요구 제출물: {res.get('total_requirements')}건 (접수: {res.get('received_count')}건 / 미접수: {res.get('missing_count')}건 / 보완: {res.get('modify_count')}건)")
+    print(f"- Word 파일: {res.get('docx_path')}")
+    print(f"- Markdown 파일: {res.get('md_path')}\n")
+
+    print("=== [세부 시방 조항별 제출도서 대조표] ===")
+    for r in res.get("requirements_matrix", []):
+        sym = "✔" if "RECEIVED" in r["status"] else ("⚠️" if "MODIFY" in r["status"] else "✖")
+        print(f"{r['no']}. [{r['required_doc_type']}] ➔ {sym} {r['status']}")
+        print(f"   - 시방 조항: {r['clause_excerpt']}")
+        print(f"   - 매핑 파일: {r['matched_local_file']}")
+        print(f"   - 출처 좌표: {r['source_anchor']}")
+        print(f"   - 감리 조치: {r['cm_action']}")
+    print()
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Samwoo-CM-Bridge CLI Tool")
+    subparsers = parser.add_subparsers(dest="command", help="Available subcommands")
+
+    # serve
+    subparsers.add_parser("serve", help="Run FastMCP stdio server")
+
+    # list
+    subparsers.add_parser("list", help="List files in secure_local_data/")
+
+    # parse
+    p_parse = subparsers.add_parser("parse", help="Parse a local project file")
+    p_parse.add_argument("filename", help="Name of file in secure_local_data/")
+
+    # check-bundle
+    p_bundle = subparsers.add_parser("check-bundle", help="Batch cross-check multiple documents")
+    p_bundle.add_argument("files", nargs="+", help="Filenames to cross-check")
+
+    # audit-diff
+    p_diff = subparsers.add_parser("audit-diff", help="Audit doc diff & pay application tampering")
+    p_diff.add_argument("base_file", help="Baseline document / Rev0")
+    p_diff.add_argument("target_file", help="Target document / Rev1")
+    p_diff.add_argument("--category", "-c", default="AUTO", help="File category (AUTO, EXCEL, TEXT)")
+
+    # checklist
+    p_chk = subparsers.add_parser("checklist", help="Dynamic checklist & plan evaluator")
+    p_chk.add_argument("work_type", help="Work type (e.g. '토공/가설', '골조/콘크리트', '기계/소방', '전기/통신')")
+    p_chk.add_argument("--conditions", "-c", default="", help="Site conditions (e.g. '도심지, 지하수위, 동절기')")
+    p_chk.add_argument("--spec", "-s", default="", help="Specification file")
+    p_chk.add_argument("--plan", "-p", default="", help="Construction plan file")
+
+    # search-std
+    p_search = subparsers.add_parser("search-std", help="Semantic search for standards & laws")
+    p_search.add_argument("query", help="Natural language query")
+    p_search.add_argument("--domain", "-d", default="", help="Domain filter")
+    p_search.add_argument("--top", "-t", type=int, default=3, help="Top K results")
+
+    # memo-index
+    p_m_idx = subparsers.add_parser("memo-index", help="Index document into project memory")
+    p_m_idx.add_argument("filename", help="Document filename to index")
+
+    # memo-search
+    p_m_search = subparsers.add_parser("memo-search", help="Search project context memory")
+    p_m_search.add_argument("query", help="Search query")
+    p_m_search.add_argument("--status", "-s", default="", help="Status filter (PENDING, RESOLVED)")
+
+    # change-track
+    p_chg = subparsers.add_parser("change-track", help="Track design changes across log and plan")
+    p_chg.add_argument("change_log", help="Change log spreadsheet (XLSX)")
+    p_chg.add_argument("plan", help="Target construction plan file")
+
+    # report-weekly
+    p_rep = subparsers.add_parser("report-weekly", help="Generate weekly CM report")
+    p_rep.add_argument("--start", default="", help="Start date (YYYY.MM.DD)")
+    p_rep.add_argument("--end", default="", help="End date (YYYY.MM.DD)")
+    p_rep.add_argument("--project", default="삼우씨엠 신축공사 CM현장", help="Project name")
+
+    # draft-notice
+    p_not = subparsers.add_parser("draft-notice", help="Draft official CM notice letter")
+    p_not.add_argument("title", help="Letter subject / title")
+    p_not.add_argument("--recipient", "-r", default="(주)대우건설 현장소장", help="Recipient")
+    p_not.add_argument("--ref", default="발주처 감독관, 품질관리팀장", help="Reference")
+    p_not.add_argument("--file", "-f", default="", help="Attached review result file")
+    p_not.add_argument("--project", default="삼우씨엠 신축공사 CM현장", help="Project name")
+
+    # review-auto
+    p_rev = subparsers.add_parser("review-auto", help="End-to-end one-click comprehensive review pipeline")
+    p_rev.add_argument("target_plan_file", help="Contractor construction plan file")
+    p_rev.add_argument("--spec", "-s", default="", help="Specification file")
+    p_rev.add_argument("--calc", "-c", default="", help="Calculation spreadsheet file")
+    p_rev.add_argument("--output", "-o", default="종합_CM기술검토의견서.docx", help="Output Word report filename")
+    p_rev.add_argument("--project", default="삼우씨엠 신축공사 CM현장", help="Project name")
+
+    # daily-log
+    p_dlog = subparsers.add_parser("daily-log", help="Generate daily CM supervision log")
+    p_dlog.add_argument("--date", "-d", default="", help="Date (YYYY.MM.DD)")
+    p_dlog.add_argument("--weather", "-w", default="맑음 (기온: 24.5℃, 강수량: 0mm)", help="Weather")
+    p_dlog.add_argument("--activities", "-a", default="", help="Activities separated by semicolon (;)")
+    p_dlog.add_argument("--project", default="삼우씨엠 신축공사 CM현장", help="Project name")
+
+    # ocr-cert
+    p_ocr = subparsers.add_parser("ocr-cert", help="OCR test certificate / Mill Sheet parser")
+    p_ocr.add_argument("file", help="Certificate image/pdf file")
+
+    # schedule-diff
+    p_sch = subparsers.add_parser("schedule-diff", help="Analyze custom schedule progress & delay")
+    p_sch.add_argument("file", help="Schedule Excel file (XLSX)")
+
+    # tbm-safe
+    p_tbm = subparsers.add_parser("tbm-safe", help="Generate daily TBM safety checklist")
+    p_tbm.add_argument("--tasks", "-t", default="지하 토사 굴착; 가설 비계 설치; 크레인 양중", help="Tasks separated by semicolon (;)")
+    p_tbm.add_argument("--date", "-d", default="", help="Date (YYYY.MM.DD)")
+    p_tbm.add_argument("--project", default="삼우씨엠 신축공사 CM현장", help="Project name")
+
+    # inspect-sheet
+    p_insp = subparsers.add_parser("inspect-sheet", help="Generate inspection sheet & result")
+    p_insp.add_argument("work_type", help="Work type (e.g. '가설 흙막이 지보공')")
+    p_insp.add_argument("location", help="Location (e.g. '지하 2층 1구역')")
+    p_insp.add_argument("--spec", "-s", default="", help="Specification")
+
     # draft-ncr
     p_ncr = subparsers.add_parser("draft-ncr", help="Draft Non-Conformance Report (NCR)")
     p_ncr.add_argument("issue", help="Defect / non-conformance description")
@@ -730,6 +857,12 @@ def main():
     p_ncr.add_argument("--category", "-c", default="시공품질 불량", help="Defect category")
     p_ncr.add_argument("--photo", "-p", default="현장 사진 첨부", help="Photo evidence")
     p_ncr.add_argument("--deadline", "-d", default="", help="Corrective deadline")
+
+    # audit-req
+    p_req = subparsers.add_parser("audit-req", help="Audit custom spec submission requirements")
+    p_req.add_argument("--spec", "-s", required=True, help="Special specification file (HWPX/DOCX)")
+    p_req.add_argument("--work-type", "-w", default="", help="Target work type filter")
+    p_req.add_argument("--project", default="삼우씨엠 신축공사 CM현장", help="Project name")
 
     # law
     p_law = subparsers.add_parser("law", help="Query national law article")
@@ -783,6 +916,8 @@ def main():
         cmd_inspect_sheet(args)
     elif args.command == "draft-ncr":
         cmd_draft_ncr(args)
+    elif args.command == "audit-req":
+        cmd_audit_req(args)
     elif args.command == "law":
         cmd_law(args)
     elif args.command == "kcsc":

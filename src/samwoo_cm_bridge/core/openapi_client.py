@@ -122,13 +122,16 @@ class OpenApiClient:
                 articles = law_data.get("articles", {})
                 if article_key and article_key in articles:
                     art = articles[article_key]
+                    law_title = law_data.get("law_name", clean_name)
+                    art_no = art.get("article_no", article_key)
                     return {
                         "status": "SUCCESS",
                         "source": "LOCAL_CACHE_FALLBACK",
-                        "law_name": law_data.get("law_name", clean_name),
-                        "article_no": art.get("article_no", article_key),
+                        "law_name": law_title,
+                        "article_no": art_no,
                         "title": art.get("title", ""),
                         "content": art.get("content", ""),
+                        "source_anchor": f"{law_title} 제{art_no}조 ({art.get('title', '')})",
                     }
                 elif articles:
                     # Return all articles or the first one
@@ -138,13 +141,15 @@ class OpenApiClient:
                         f"[제{v.get('article_no')}조 ({v.get('title')})]\n{v.get('content')}"
                         for v in articles.values()
                     )
+                    law_title = law_data.get("law_name", clean_name)
                     return {
                         "status": "SUCCESS",
                         "source": "LOCAL_CACHE_FALLBACK",
-                        "law_name": law_data.get("law_name", clean_name),
+                        "law_name": law_title,
                         "article_no": "전체" if not article_key else article_key,
                         "title": "관련 조항 모음",
                         "content": all_content,
+                        "source_anchor": f"{law_title} 전문",
                     }
 
         return {
@@ -154,6 +159,7 @@ class OpenApiClient:
             "article_no": article_key or "-",
             "title": "기준 미확인",
             "content": f"해당 법령({clean_name} 제{article_key or ''}조)의 최신 조문 정보를 찾을 수 없습니다. 법령명을 확인해주세요.",
+            "source_anchor": f"{clean_name} (미확인)",
         }
 
     def fetch_kcsc_standard(self, standard_code: str) -> Dict[str, Any]:
@@ -185,6 +191,7 @@ class OpenApiClient:
                         "category": data.get("category", ""),
                         "discipline": data.get("discipline", ""),
                         "content": data.get("body", ""),
+                        "source_anchor": f"{clean_code} ({data.get('title', '')})",
                     }
             except Exception as e:
                 logger.warning(f"KCSC API call failed, switching to local cache: {e}")
@@ -198,16 +205,19 @@ class OpenApiClient:
                     section_texts.append(f"### {s_val.get('title', s_key)}\n{s_val.get('content', '')}")
 
                 full_content = "\n\n".join(section_texts) if section_texts else "본문 내용 없음"
+                std_code = standard_data.get("standard_code", clean_code)
+                std_name = standard_data.get("standard_name", "")
 
                 return {
                     "status": "SUCCESS",
                     "source": "LOCAL_CACHE_FALLBACK",
-                    "standard_code": standard_data.get("standard_code", clean_code),
-                    "standard_name": standard_data.get("standard_name", ""),
+                    "standard_code": std_code,
+                    "standard_name": std_name,
                     "category": standard_data.get("category", ""),
                     "discipline": standard_data.get("discipline", ""),
                     "revision_year": standard_data.get("revision_year", "최신"),
                     "content": full_content,
+                    "source_anchor": f"{std_code} ({std_name})",
                 }
 
         return {
@@ -218,6 +228,7 @@ class OpenApiClient:
             "category": "-",
             "discipline": "-",
             "content": f"해당 국가건설기준({clean_code})의 본문 데이터를 찾을 수 없습니다.",
+            "source_anchor": f"{clean_code} (미확인)",
         }
 
 

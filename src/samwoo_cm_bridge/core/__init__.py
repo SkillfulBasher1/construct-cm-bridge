@@ -27,6 +27,10 @@ from .inspection_ncr_generator import (
     generate_inspection_sheet,
     draft_ncr_correction_order,
 )
+from .custom_requirement_auditor import (
+    CustomRequirementAuditor,
+    audit_custom_spec_requirements,
+)
 
 __all__ = [
     "OpenApiClient",
@@ -71,4 +75,6 @@ __all__ = [
     "InspectionNCRGenerator",
     "generate_inspection_sheet",
     "draft_ncr_correction_order",
+    "CustomRequirementAuditor",
+    "audit_custom_spec_requirements",
 ]

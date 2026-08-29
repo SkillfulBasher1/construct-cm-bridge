@@ -28,6 +28,7 @@ from .core.inspection_ncr_generator import (
     generate_inspection_sheet as _gen_inspection,
     draft_ncr_correction_order as _draft_ncr,
 )
+from .core.custom_requirement_auditor import audit_custom_spec_requirements as _audit_spec_reqs
 
 logger = logging.getLogger("samwoo_cm_bridge")
 
@@ -530,6 +531,31 @@ def draft_ncr_correction_order(
             defect_category=defect_category,
             photo_attached=photo_attached,
             corrective_deadline=corrective_deadline,
+        )
+        return json.dumps(res, ensure_ascii=False, indent=2)
+    except Exception as e:
+        return json.dumps({"status": "ERROR", "error": str(e)}, ensure_ascii=False)
+
+
+@mcp.tool()
+def audit_custom_spec_requirements(
+    spec_file: str,
+    target_work_type: str = "",
+    project_name: str = "삼우씨엠 신축공사 CM현장",
+) -> str:
+    """발주처 과업지시서/특기시방서(HWPX/DOCX)에서 필수 제출도서 요건을 추출하고
+    로컬 파일 목록과 매핑하여 [접수완료 / 미접수(누락) / 보완필요] 판정표 및 제출현황표(.docx)를 자동 생성합니다.
+
+    Args:
+        spec_file: 발주처 특기시방서 파일명 (예: 'sample_과업지시서_특기시방.hwpx')
+        target_work_type: 특정 공종 필터 (선택 사항, 예: '토공/가설')
+        project_name: 현장 사업명
+    """
+    try:
+        res = _audit_spec_reqs(
+            spec_file=spec_file,
+            target_work_type=target_work_type if target_work_type else None,
+            project_name=project_name,
         )
         return json.dumps(res, ensure_ascii=False, indent=2)
     except Exception as e:

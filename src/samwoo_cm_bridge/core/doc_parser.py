@@ -115,8 +115,6 @@ class DocumentParser:
                                 structured_tables.append(table_data)
                                 tables_markdown.append(self._table_to_markdown(table_data))
                         elif tag == "p":
-                            # Check if paragraph is inside a table cell (avoid duplicating table texts)
-                            # Simple approach: collect text runs
                             p_texts = []
                             for t in elem.iter():
                                 if t.tag.split("}")[-1] == "t" and t.text:
@@ -125,6 +123,46 @@ class DocumentParser:
                                 line = " ".join(p_texts).strip()
                                 if line:
                                     paragraphs.append(line)
+
+            # Build anchored chunks
+            chunks: List[Dict[str, Any]] = []
+            char_offset = 0
+            line_counter = 1
+
+            for p_idx, p in enumerate(paragraphs, 1):
+                p_len = len(p)
+                chunks.append({
+                    "chunk_id": f"P-{p_idx:03d}",
+                    "source_type": "PARAGRAPH",
+                    "line_no": line_counter,
+                    "char_start": char_offset,
+                    "char_end": char_offset + p_len,
+                    "section_title": "본문 단락",
+                    "table_coord": None,
+                    "text": p,
+                    "source_anchor": f"{path.name} L{line_counter} (char {char_offset}-{char_offset + p_len})",
+                })
+                char_offset += p_len + 2
+                line_counter += 1
+
+            for t_idx, t_matrix in enumerate(structured_tables, 1):
+                for r_idx, row in enumerate(t_matrix):
+                    for c_idx, cell in enumerate(row):
+                        if cell.strip():
+                            cell_len = len(cell)
+                            chunks.append({
+                                "chunk_id": f"TBL-{t_idx}-R{r_idx}C{c_idx}",
+                                "source_type": "TABLE_CELL",
+                                "line_no": line_counter,
+                                "char_start": char_offset,
+                                "char_end": char_offset + cell_len,
+                                "section_title": f"표 {t_idx}",
+                                "table_coord": {"table": t_idx, "row": r_idx, "col": c_idx},
+                                "text": cell,
+                                "source_anchor": f"{path.name} Table {t_idx} [R{r_idx}, C{c_idx}]",
+                            })
+                            char_offset += cell_len + 1
+                    line_counter += 1
 
             md_content = f"# [HWPX Document] {path.name}\n\n"
             if paragraphs:
@@ -137,10 +175,12 @@ class DocumentParser:
                 "filename": path.name,
                 "format": "HWPX",
                 "markdown": md_content,
+                "chunks": chunks,
                 "metadata": {
                     "paragraph_count": len(paragraphs),
                     "table_count": len(structured_tables),
                     "tables": structured_tables,
+                    "chunk_count": len(chunks),
                 }
             }
         except Exception as e:
@@ -197,14 +237,31 @@ class DocumentParser:
             md_sections.append(self._table_to_markdown(normalized_rows))
             md_sections.append("\n")
 
+        # Build chunks for XLSX
+        chunks: List[Dict[str, Any]] = []
+        for s_name, s_rows in sheets_data.items():
+            for r_idx, row in enumerate(s_rows, 1):
+                row_str = " | ".join(row)
+                chunks.append({
+                    "chunk_id": f"{s_name}-R{r_idx}",
+                    "source_type": "SHEET_ROW",
+                    "line_no": r_idx,
+                    "section_title": f"시트: {s_name}",
+                    "table_coord": {"sheet": s_name, "row": r_idx},
+                    "text": row_str,
+                    "source_anchor": f"{path.name} [{s_name}!R{r_idx}]",
+                })
+
         return {
             "status": "SUCCESS",
             "filename": path.name,
             "format": "XLSX",
             "markdown": "\n".join(md_sections),
+            "chunks": chunks,
             "metadata": {
                 "sheets": list(sheets_data.keys()),
                 "data": sheets_data,
+                "chunk_count": len(chunks),
             }
         }
 
@@ -232,15 +289,49 @@ class DocumentParser:
         if tables_md:
             md_sections.append("## 표 (Tables)\n" + "\n\n".join(tables_md))
 
+        # Build chunks for DOCX
+        chunks: List[Dict[str, Any]] = []
+        char_offset = 0
+        for p_idx, p in enumerate(paragraphs, 1):
+            p_len = len(p)
+            chunks.append({
+                "chunk_id": f"P-{p_idx:03d}",
+                "source_type": "PARAGRAPH",
+                "line_no": p_idx,
+                "char_start": char_offset,
+                "char_end": char_offset + p_len,
+                "section_title": "본문 단락",
+                "table_coord": None,
+                "text": p,
+                "source_anchor": f"{path.name} L{p_idx} (char {char_offset}-{char_offset + p_len})",
+            })
+            char_offset += p_len + 2
+
+        for t_idx, t_matrix in enumerate(tables_data, 1):
+            for r_idx, row in enumerate(t_matrix):
+                for c_idx, cell in enumerate(row):
+                    if cell.strip():
+                        chunks.append({
+                            "chunk_id": f"TBL-{t_idx}-R{r_idx}C{c_idx}",
+                            "source_type": "TABLE_CELL",
+                            "line_no": p_idx + r_idx,
+                            "section_title": f"표 {t_idx}",
+                            "table_coord": {"table": t_idx, "row": r_idx, "col": c_idx},
+                            "text": cell,
+                            "source_anchor": f"{path.name} Table {t_idx} [R{r_idx}, C{c_idx}]",
+                        })
+
         return {
             "status": "SUCCESS",
             "filename": path.name,
             "format": "DOCX",
             "markdown": "\n\n".join(md_sections),
+            "chunks": chunks,
             "metadata": {
                 "paragraph_count": len(paragraphs),
                 "table_count": len(tables_data),
                 "tables": tables_data,
+                "chunk_count": len(chunks),
             }
         }
 
@@ -342,3 +433,8 @@ def read_local_project_file(filename: str) -> Dict[str, Any]:
 
 def list_secure_local_files() -> List[Dict[str, Any]]:
     return _parser.list_files()
+
+
+def get_anchored_chunks(filename: str) -> List[Dict[str, Any]]:
+    doc = _parser.parse_document(filename)
+    return doc.get("chunks", [])
