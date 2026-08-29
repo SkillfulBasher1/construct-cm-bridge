@@ -51,6 +51,18 @@ from .cm_final_report_assembler import (
     CMFinalReportAssembler,
     assemble_cm_final_report,
 )
+from .fire_hazard_conflict_detector import (
+    FireHazardConflictDetector,
+    check_concurrent_work_fire_hazard,
+)
+from .video_record_manager import (
+    VideoRecordManager,
+    generate_video_recording_log,
+)
+from .weather_stop_work_trigger import (
+    WeatherStopWorkTrigger,
+    issue_weather_stop_work_order,
+)
 
 __all__ = [
     "OpenApiClient",
@@ -107,4 +119,10 @@ __all__ = [
     "audit_subcontract_agreement",
     "CMFinalReportAssembler",
     "assemble_cm_final_report",
+    "FireHazardConflictDetector",
+    "check_concurrent_work_fire_hazard",
+    "VideoRecordManager",
+    "generate_video_recording_log",
+    "WeatherStopWorkTrigger",
+    "issue_weather_stop_work_order",
 ]

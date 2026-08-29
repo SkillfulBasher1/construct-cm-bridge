@@ -37,6 +37,9 @@ from .core.concrete_qc_tracker import register_concrete_pour
 from .core.ncr_action_sheet_builder import generate_before_after_sheet
 from .core.subcontract_auditor import audit_subcontract_agreement
 from .core.cm_final_report_assembler import assemble_cm_final_report
+from .core.fire_hazard_conflict_detector import check_concurrent_work_fire_hazard
+from .core.video_record_manager import generate_video_recording_log
+from .core.weather_stop_work_trigger import issue_weather_stop_work_order
 
 
 def cmd_serve(args):
@@ -1116,6 +1119,73 @@ def cmd_assemble_report(args):
     print(f"- Markdown 완성본: {res.get('md_path')}\n")
 
 
+def cmd_fire_conflict(args):
+    """Detect hot work & combustible material concurrent work conflicts."""
+    res = check_concurrent_work_fire_hazard(
+        tasks_list=args.tasks,
+        date_str=args.date,
+        project_name=args.project,
+    )
+    print("\n" + "=" * 70)
+    print(f"[화재위험 동시작업 충돌 감지] 최종 판정: {res.get('overall_verdict')}")
+    print("=" * 70)
+    print(f"- 평가 작업 수: 총 {res.get('total_tasks_evaluated')}건 (화기 {res.get('hot_works_count')}건 / 가연성 {res.get('combustible_works_count')}건)")
+    print(f"- 동시작업 충돌: {res.get('conflicts_count')}건 검출")
+    print(f"- Word 파일: {res.get('docx_path')}")
+    print(f"- Markdown 파일: {res.get('md_path')}\n")
+
+    if res.get("conflicts"):
+        print("=== [동시작업 충돌 상세 내역] ===")
+        for idx, conf in enumerate(res["conflicts"], 1):
+            print(f"{idx}. 위치: {conf['conflict_location']} ➔ 🚨 {conf['risk_level']}")
+            print(f"   - 화기작업 (점화원): {conf['hot_work']}")
+            print(f"   - 가연성물질 (연소원): {conf['combustible_work']}")
+            print(f"   - 조치요구: {conf['mandatory_action']}")
+    print()
+
+
+def cmd_video_log(args):
+    """Generate structural member video recording register."""
+    res = generate_video_recording_log(
+        project_name=args.project,
+    )
+    print("\n" + "=" * 70)
+    print(f"[주요 구조부 동영상 촬영 기록관리대장 조립 완료]")
+    print("=" * 70)
+    print(f"- 문서번호: {res.get('doc_no')}")
+    print(f"- 등록된 검측 동영상: 총 {res.get('total_video_records')}건")
+    print(f"- Word 파일: {res.get('docx_path')}")
+    print(f"- Markdown 파일: {res.get('md_path')}\n")
+
+
+def cmd_weather_stop(args):
+    """Evaluate weather conditions and issue stop work order."""
+    res = issue_weather_stop_work_order(
+        rain_mm=args.rain,
+        wind_speed_ms=args.wind,
+        planned_work=args.work,
+        temp_c=args.temp,
+        project_name=args.project,
+    )
+    print("\n" + "=" * 70)
+    print(f"[기상특보 연동 작업중지 명령] 종합 판정: {res.get('overall_verdict')}")
+    print("=" * 70)
+    print(f"- 기상 조건: 강우량 {res.get('rain_mm')} mm/hr, 풍속 {res.get('wind_speed_ms')} m/s, 기온 {res.get('temp_c')} ℃")
+    print(f"- 작업중지 항목: 총 {res.get('stop_items_count')}건 발령")
+    print(f"- Word 파일: {res.get('docx_path')}")
+    print(f"- Markdown 파일: {res.get('md_path')}\n")
+
+    if res.get("stop_items"):
+        print("=== [작업중지 명령 상세 내역] ===")
+        for idx, item in enumerate(res["stop_items"], 1):
+            print(f"{idx}. 구분: {item['category']} ➔ 🛑 {item['stop_level']}")
+            print(f"   - 기상 측정: {item['weather_metric']}")
+            print(f"   - 적용 기준: {item['legal_standard']}")
+            print(f"   - 중지 대상: {', '.join(item['target_work'])}")
+            print(f"   - 지시 사항: {item['order_details']}")
+    print()
+
+
 def main():
     parser = argparse.ArgumentParser(description="Samwoo-CM-Bridge CLI Tool")
     subparsers = parser.add_subparsers(dest="command", help="Available subcommands")
@@ -1269,6 +1339,24 @@ def main():
     p_ass.add_argument("--project", default="삼우씨엠 신축공사 CM현장", help="Project name")
     p_ass.add_argument("--type", "-t", default="준공 감리완료보고서", help="Report type")
 
+    # fire-conflict
+    p_fire = subparsers.add_parser("fire-conflict", help="Detect hot work & combustible material conflicts")
+    p_fire.add_argument("--tasks", "-t", required=True, help="Tasks list separated by semicolon (;)")
+    p_fire.add_argument("--date", "-d", default="", help="Inspection date")
+    p_fire.add_argument("--project", default="삼우씨엠 신축공사 CM현장", help="Project name")
+
+    # video-log
+    p_vid = subparsers.add_parser("video-log", help="Generate video recording register")
+    p_vid.add_argument("--project", default="삼우씨엠 신축공사 CM현장", help="Project name")
+
+    # weather-stop
+    p_wea = subparsers.add_parser("weather-stop", help="Evaluate weather and issue stop work order")
+    p_wea.add_argument("--rain", "-r", type=float, default=0.0, help="Rainfall (mm/hr)")
+    p_wea.add_argument("--wind", "-w", type=float, default=0.0, help="Wind speed (m/s)")
+    p_wea.add_argument("--work", default="3층 슬래브 콘크리트 타설 및 갱폼 양중", help="Planned work")
+    p_wea.add_argument("--temp", type=float, default=22.0, help="Temperature (℃)")
+    p_wea.add_argument("--project", default="삼우씨엠 신축공사 CM현장", help="Project name")
+
     # law
     p_law = subparsers.add_parser("law", help="Query national law article")
     p_law.add_argument("law_name", help="Name of law")
@@ -1333,6 +1421,12 @@ def main():
         cmd_audit_subcon(args)
     elif args.command == "assemble-report":
         cmd_assemble_report(args)
+    elif args.command == "fire-conflict":
+        cmd_fire_conflict(args)
+    elif args.command == "video-log":
+        cmd_video_log(args)
+    elif args.command == "weather-stop":
+        cmd_weather_stop(args)
     elif args.command == "law":
         cmd_law(args)
     elif args.command == "kcsc":

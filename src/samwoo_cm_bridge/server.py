@@ -36,6 +36,9 @@ from .core.concrete_qc_tracker import register_concrete_pour as _register_pour
 from .core.ncr_action_sheet_builder import generate_before_after_sheet as _gen_ba_sheet
 from .core.subcontract_auditor import audit_subcontract_agreement as _audit_subcontract
 from .core.cm_final_report_assembler import assemble_cm_final_report as _assemble_final
+from .core.fire_hazard_conflict_detector import check_concurrent_work_fire_hazard as _check_fire_hazard
+from .core.video_record_manager import generate_video_recording_log as _gen_video_log
+from .core.weather_stop_work_trigger import issue_weather_stop_work_order as _issue_weather_stop
 
 logger = logging.getLogger("samwoo_cm_bridge")
 
@@ -734,6 +737,102 @@ def assemble_cm_final_report(
             report_type=report_type,
             chief_cm_name=chief_cm_name,
             client_name=client_name,
+            contractor_name=contractor_name,
+        )
+        return json.dumps(res, ensure_ascii=False, indent=2)
+    except Exception as e:
+        return json.dumps({"status": "ERROR", "error": str(e)}, ensure_ascii=False)
+
+
+@mcp.tool()
+def check_concurrent_work_fire_hazard(
+    tasks_list: list,
+    date_str: str = "",
+    project_name: str = "삼우씨엠 신축공사 CM현장",
+    chief_cm_name: str = "김수석 책임건설사업관리기술인",
+    contractor_name: str = "(주)대우건설 현장소장",
+) -> str:
+    """일일 작업계획 목록에서 화재위험(용접, 용단, 그라인더)과 가연성물질(단열재 우레탄폼, 도장, 방수)
+    공종의 공간적·시간적 중복을 탐지하여 즉시 경보 및 삼우씨엠 표준 '화재위험 시정지시서(.docx)'를 생성합니다.
+
+    Args:
+        tasks_list: 당일 예정 작업 목록 (예: ['지하 1층 기계실 소방배관 용접', '지하 1층 외벽 우레탄폼 뿜칠', '101동 갱폼 양중'])
+        date_str: 점검일자 (예: '2026.08.29')
+        project_name: 현장 사업명
+        chief_cm_name: 책임건설사업관리기술인 성명
+        contractor_name: 시공사 현장소장 성명
+    """
+    try:
+        res = _check_fire_hazard(
+            tasks_list=tasks_list,
+            date_str=date_str,
+            project_name=project_name,
+            chief_cm_name=chief_cm_name,
+            contractor_name=contractor_name,
+        )
+        return json.dumps(res, ensure_ascii=False, indent=2)
+    except Exception as e:
+        return json.dumps({"status": "ERROR", "error": str(e)}, ensure_ascii=False)
+
+
+@mcp.tool()
+def generate_video_recording_log(
+    video_records_list: list = None,
+    project_name: str = "삼우씨엠 신축공사 CM현장",
+    chief_cm_name: str = "김수석 책임건설사업관리기술인",
+    contractor_name: str = "(주)대우건설",
+) -> str:
+    """주요 구조부(철근 배근, 콘크리트 타설, 흙막이 등) 검측 동영상 파일 및 메타데이터를 결합하여
+    지자체 및 인허가 관청 제출용 공식 '동영상 촬영 기록관리대장(.docx / .md)'을 자동 생성합니다.
+
+    Args:
+        video_records_list: 동영상 기록 딕셔너리 리스트 (영상파일명, 공종명, 촬영일자, 위치, 검측내용 등)
+        project_name: 현장 사업명
+        chief_cm_name: 책임건설사업관리기술인 성명
+        contractor_name: 시공자 상호
+    """
+    try:
+        res = _gen_video_log(
+            video_records_list=video_records_list or [],
+            project_name=project_name,
+            chief_cm_name=chief_cm_name,
+            contractor_name=contractor_name,
+        )
+        return json.dumps(res, ensure_ascii=False, indent=2)
+    except Exception as e:
+        return json.dumps({"status": "ERROR", "error": str(e)}, ensure_ascii=False)
+
+
+@mcp.tool()
+def issue_weather_stop_work_order(
+    rain_mm: float,
+    wind_speed_ms: float,
+    planned_work: str = "3층 슬래브 콘크리트 타설 및 갱폼 양중",
+    temp_c: float = 22.0,
+    project_name: str = "삼우씨엠 신축공사 CM현장",
+    chief_cm_name: str = "김수석 책임건설사업관리기술인",
+    contractor_name: str = "(주)대우건설 현장소장",
+) -> str:
+    """강우량 및 풍속 조건을 KCS 콘크리트 표준시방서 및 산업안전보건기준에 따라 자동 판정하여
+    우천 시 타설 금지 및 강풍 시 크레인 양중 작업중지 공식 '작업중지 명령서(.docx / .md)'를 기안합니다.
+
+    Args:
+        rain_mm: 강우량 (mm/hr)
+        wind_speed_ms: 순간최대풍속 (m/s)
+        planned_work: 당일 계획 작업 내용
+        temp_c: 현재 기온 (℃)
+        project_name: 현장 사업명
+        chief_cm_name: 책임건설사업관리기술인 성명
+        contractor_name: 시공사 현장소장 성명
+    """
+    try:
+        res = _issue_weather_stop(
+            rain_mm=rain_mm,
+            wind_speed_ms=wind_speed_ms,
+            planned_work=planned_work,
+            temp_c=temp_c,
+            project_name=project_name,
+            chief_cm_name=chief_cm_name,
             contractor_name=contractor_name,
         )
         return json.dumps(res, ensure_ascii=False, indent=2)
