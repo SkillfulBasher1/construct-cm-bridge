@@ -17,11 +17,17 @@ from .core.batch_cross_checker import batch_cross_check_documents as _batch_cros
 from .core.diff_audit_engine import audit_document_diff as _audit_diff
 from .core.adaptive_checklist_engine import generate_and_evaluate_checklist as _checklist_eval
 from .core.semantic_standard_searcher import search_standards_by_keyword as _search_standards
-from .core.project_memory_engine import index_project_instruction as _index_instruction, search_project_memory as _search_memory
-from .core.design_change_tracker import track_design_changes as _track_changes
 from .core.cm_periodic_reporter import generate_weekly_cm_report as _gen_weekly_report
 from .core.official_letter_generator import draft_official_notice as _draft_notice
 from .core.comprehensive_review_pipeline import run_comprehensive_review as _auto_review
+from .core.ocr_parser import parse_scanned_material_cert as _parse_cert
+from .core.daily_log_generator import generate_daily_cm_log as _gen_daily_log
+from .core.flexible_schedule_analyzer import analyze_custom_schedule as _analyze_schedule
+from .core.safety_tbm_generator import generate_daily_tbm_safety as _gen_tbm
+from .core.inspection_ncr_generator import (
+    generate_inspection_sheet as _gen_inspection,
+    draft_ncr_correction_order as _draft_ncr,
+)
 
 logger = logging.getLogger("samwoo_cm_bridge")
 
@@ -372,6 +378,158 @@ def run_comprehensive_review(
             output_report_name=output_report_name,
             project_name=project_name,
             reviewer_name=reviewer_name,
+        )
+        return json.dumps(res, ensure_ascii=False, indent=2)
+    except Exception as e:
+        return json.dumps({"status": "ERROR", "error": str(e)}, ensure_ascii=False)
+
+
+@mcp.tool()
+def parse_scanned_material_cert(image_or_pdf_file: str) -> str:
+    """스캔된 자재 시험성적서/공장 밀시트(PDF, JPG, PNG)에서 로컬 OCR을 통해 항복강도, 인장강도,
+    압축강도, 열전도율 수치를 자동 추출하고 KS 기준 합격 여부를 판정합니다.
+
+    Args:
+        image_or_pdf_file: 스캔 성적서 파일명 (예: 'sample_밀시트_SS275.jpg', 'sample_콘크리트성적서.pdf')
+    """
+    try:
+        res = _parse_cert(image_or_pdf_file=image_or_pdf_file)
+        return json.dumps(res, ensure_ascii=False, indent=2)
+    except Exception as e:
+        return json.dumps({"status": "ERROR", "error": str(e)}, ensure_ascii=False)
+
+
+@mcp.tool()
+def generate_daily_cm_log(
+    date_str: str = "",
+    weather: str = "맑음 (기온: 24.5℃, 강수량: 0mm)",
+    activities: list[str] = None,
+    inspections: list[dict] = None,
+    workers_count: dict = None,
+    equipment_count: dict = None,
+    project_name: str = "삼우씨엠 신축공사 CM현장",
+    chief_cm_name: str = "김수석 책임건설사업관리기술인",
+) -> str:
+    """금일 시공사 작업내용, 검측 실적, 투입 인원 및 중장비 데이터를 취합하여
+    삼우씨엠 표준 '일일 감리업무일보(.docx)'를 자동 생성합니다.
+
+    Args:
+        date_str: 업무일자 (예: '2026.08.29')
+        weather: 기상 상태 및 기온/강수량
+        activities: 금일 시공사 주요 공종 작업내용 목록
+        inspections: 감리단 검측 및 안전점검 실적 목록
+        workers_count: 직종별 투입 인원수 딕셔너리
+        equipment_count: 투입 장비 대수 딕셔너리
+        project_name: 현장 사업명
+        chief_cm_name: 책임건설사업관리기술인 성명
+    """
+    try:
+        res = _gen_daily_log(
+            date_str=date_str if date_str else None,
+            weather=weather,
+            activities=activities,
+            inspections=inspections,
+            workers_count=workers_count,
+            equipment_count=equipment_count,
+            project_name=project_name,
+            chief_cm_name=chief_cm_name,
+        )
+        return json.dumps(res, ensure_ascii=False, indent=2)
+    except Exception as e:
+        return json.dumps({"status": "ERROR", "error": str(e)}, ensure_ascii=False)
+
+
+@mcp.tool()
+def analyze_custom_schedule(excel_file: str) -> str:
+    """다양한 양식의 시공사 엑셀 공정표(XLSX)를 동적으로 스캔하여 계획 대비 실적 지연율(%p)을 분석하고
+    주공정선(Critical Path) 부진 시 공정만회대책 요구서를 자동 작성합니다.
+
+    Args:
+        excel_file: 공정표 엑셀 파일명 (예: 'sample_공정표_진도현황.xlsx')
+    """
+    try:
+        res = _analyze_schedule(excel_file=excel_file)
+        return json.dumps(res, ensure_ascii=False, indent=2)
+    except Exception as e:
+        return json.dumps({"status": "ERROR", "error": str(e)}, ensure_ascii=False)
+
+
+@mcp.tool()
+def generate_daily_tbm_safety(
+    today_tasks_list: list[str],
+    date_str: str = "",
+    project_name: str = "삼우씨엠 신축공사 CM현장",
+) -> str:
+    """당일 예정된 공종명(굴착, 비계, 양중, 용접, 콘크리트 타설 등)을 입력받아 산안법 및 KCS 기준에 따른
+    맞춤형 '일일 TBM 안전점검표 및 위험성평가표(.docx)'를 자동 생성합니다.
+
+    Args:
+        today_tasks_list: 금일 예정 작업 공종 목록 (예: ['지하 10m 토사 굴착', '가설 비계 설치', '크레인 양중'])
+        date_str: 일자 (예: '2026.08.29')
+        project_name: 현장 사업명
+    """
+    try:
+        res = _gen_tbm(
+            today_tasks_list=today_tasks_list,
+            date_str=date_str if date_str else None,
+            project_name=project_name,
+        )
+        return json.dumps(res, ensure_ascii=False, indent=2)
+    except Exception as e:
+        return json.dumps({"status": "ERROR", "error": str(e)}, ensure_ascii=False)
+
+
+@mcp.tool()
+def generate_inspection_sheet(
+    work_type: str,
+    location: str,
+    contractor_spec: str = "",
+    inspection_items: list[dict] = None,
+) -> str:
+    """현장 시공 부위에 대한 공종별 표준 '검측요청서 및 결과통보서(.docx)'를 자동 기안합니다.
+
+    Args:
+        work_type: 검측 대상 공종 (예: '가설 흙막이 지보공', '철근 배근', '배관 수압시험')
+        location: 검측 위치 (예: '지하 2층 1구역 (X1~X5 열)')
+        contractor_spec: 시공사 제출 규격/도면 사양
+        inspection_items: 세부 검측 체크항목 리스트 (선택 사항)
+    """
+    try:
+        res = _gen_inspection(
+            work_type=work_type,
+            location=location,
+            contractor_spec=contractor_spec,
+            inspection_items=inspection_items,
+        )
+        return json.dumps(res, ensure_ascii=False, indent=2)
+    except Exception as e:
+        return json.dumps({"status": "ERROR", "error": str(e)}, ensure_ascii=False)
+
+
+@mcp.tool()
+def draft_ncr_correction_order(
+    issue_description: str,
+    location: str,
+    defect_category: str = "시공품질 불량",
+    photo_attached: str = "현장 결함 사진 첨부",
+    corrective_deadline: str = "",
+) -> str:
+    """현장 부적합/결함 적발 시 시공사 대상 정식 '부적합 시정지시서(NCR: Non-Conformance Report .docx)'를 즉시 발급합니다.
+
+    Args:
+        issue_description: 지적 사항 및 결함 내용 (예: '1단 버팀보 볼트 조임 불량 및 안전율 미달 부재 무단 설치')
+        location: 결함 발생 위치 (예: '지하 2층 램프 구간')
+        defect_category: 부적합 분류 ('시공품질 불량', '안전관리 미흡', '도면/시방 위반')
+        photo_attached: 사진 증빙 설명
+        corrective_deadline: 시정조치 완료 기한 (예: '2026년 09월 05일까지')
+    """
+    try:
+        res = _draft_ncr(
+            issue_description=issue_description,
+            location=location,
+            defect_category=defect_category,
+            photo_attached=photo_attached,
+            corrective_deadline=corrective_deadline,
         )
         return json.dumps(res, ensure_ascii=False, indent=2)
     except Exception as e:

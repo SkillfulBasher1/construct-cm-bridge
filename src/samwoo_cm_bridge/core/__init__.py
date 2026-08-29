@@ -18,6 +18,15 @@ from .design_change_tracker import DesignChangeTracker, track_design_changes
 from .cm_periodic_reporter import PeriodicReporter, generate_weekly_cm_report
 from .official_letter_generator import OfficialLetterGenerator, draft_official_notice
 from .comprehensive_review_pipeline import ComprehensiveReviewPipeline, run_comprehensive_review
+from .ocr_parser import MaterialCertOCRParser, parse_scanned_material_cert
+from .daily_log_generator import DailyLogGenerator, generate_daily_cm_log
+from .flexible_schedule_analyzer import FlexibleScheduleAnalyzer, analyze_custom_schedule
+from .safety_tbm_generator import SafetyTBMGenerator, generate_daily_tbm_safety
+from .inspection_ncr_generator import (
+    InspectionNCRGenerator,
+    generate_inspection_sheet,
+    draft_ncr_correction_order,
+)
 
 __all__ = [
     "OpenApiClient",
@@ -51,4 +60,15 @@ __all__ = [
     "draft_official_notice",
     "ComprehensiveReviewPipeline",
     "run_comprehensive_review",
+    "MaterialCertOCRParser",
+    "parse_scanned_material_cert",
+    "DailyLogGenerator",
+    "generate_daily_cm_log",
+    "FlexibleScheduleAnalyzer",
+    "analyze_custom_schedule",
+    "SafetyTBMGenerator",
+    "generate_daily_tbm_safety",
+    "InspectionNCRGenerator",
+    "generate_inspection_sheet",
+    "draft_ncr_correction_order",
 ]

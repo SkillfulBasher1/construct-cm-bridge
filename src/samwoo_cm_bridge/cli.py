@@ -23,6 +23,14 @@ from .core.design_change_tracker import track_design_changes
 from .core.cm_periodic_reporter import generate_weekly_cm_report
 from .core.official_letter_generator import draft_official_notice
 from .core.comprehensive_review_pipeline import run_comprehensive_review
+from .core.ocr_parser import parse_scanned_material_cert
+from .core.daily_log_generator import generate_daily_cm_log
+from .core.flexible_schedule_analyzer import analyze_custom_schedule
+from .core.safety_tbm_generator import generate_daily_tbm_safety
+from .core.inspection_ncr_generator import (
+    generate_inspection_sheet,
+    draft_ncr_correction_order,
+)
 
 
 def cmd_serve(args):
@@ -489,6 +497,187 @@ def main():
     p_rep = subparsers.add_parser("report-weekly", help="Generate weekly CM report")
     p_rep.add_argument("--start", default="", help="Start date (YYYY.MM.DD)")
     p_rep.add_argument("--end", default="", help="End date (YYYY.MM.DD)")
+def cmd_daily_log(args):
+    """Generate daily CM supervision log."""
+    acts = [a.strip() for a in args.activities.split(";")] if args.activities else None
+    res = generate_daily_cm_log(
+        date_str=args.date,
+        weather=args.weather,
+        activities=acts,
+        project_name=args.project,
+    )
+    print("\n" + "=" * 70)
+    print(f"[일일 감리업무일보 자동 생성 완료]")
+    print("=" * 70)
+    print(f"- 문서번호: {res.get('doc_no')} | 일자: {res.get('date')}")
+    print(f"- 기상정보: {res.get('weather')}")
+    print(f"- 투입인원: 총 {res.get('total_workers')}명 | 투입장비: 총 {res.get('total_equipment')}대")
+    print(f"- Word 파일: {res.get('docx_path')}")
+    print(f"- Markdown 파일: {res.get('md_path')}\n")
+
+
+def cmd_ocr_cert(args):
+    """Run OCR and validate material test certificate."""
+    res = parse_scanned_material_cert(args.file)
+    print("\n" + "=" * 70)
+    print(f"[자재 시험성적서/밀시트 OCR 판정] 최종 결과: {res.get('ks_compliance_verdict')}")
+    print("=" * 70)
+    meta = res.get("certificate_metadata", {})
+    print(f"- 성적서 번호: {meta.get('report_no')} | 발행처: {meta.get('test_agency')}")
+    print(f"- 강종/규격: {meta.get('material_grade')} | 용강/로트: {meta.get('heat_or_lot_no')}")
+    print(f"- 시험 일자: {meta.get('issue_date')}\n")
+
+    print("=== [추출된 역학/물리 시험 수치] ===")
+    for k, v in res.get("test_results", {}).items():
+        print(f" • {k}: {v}")
+    print()
+
+    if res.get("compliance_details"):
+        print("=== [KS 규격 검증 상세] ===")
+        for d in res.get("compliance_details", []):
+            print(f" ✔ {d}")
+        print()
+
+
+def cmd_schedule_diff(args):
+    """Analyze custom schedule spreadsheet progress and delays."""
+    res = analyze_custom_schedule(args.file)
+    print("\n" + "=" * 70)
+    print(f"[공정표 진도율 및 지연 분석] 종합 판정: {res.get('overall_verdict')}")
+    print("=" * 70)
+    summary = res.get("project_progress_summary", {})
+    print(f"- 평균 계획진도: {summary.get('average_planned_pct')}%")
+    print(f"- 평균 실적진도: {summary.get('average_actual_pct')}% (대비: {summary.get('variance_pct'):+.1f}%p)")
+    print(f"- 총 관리 액티비티: {res.get('total_activities_count')}건 (주의/심각 지연: {res.get('delayed_critical_count')}건)\n")
+
+    if res.get("delayed_critical_activities"):
+        print("=== [지연 중점 관리 공종 (Critical Path)] ===")
+        for idx, act in enumerate(res.get("delayed_critical_activities", []), 1):
+            print(f"{idx}. {act['name']} ➔ 계획 {act['planned_pct']}% vs 실적 {act['actual_pct']}% ({act['variance_pct']:+.1f}%p)")
+            print(f"   - 상태: {act['status_description']}")
+            print(f"   - 조치: {act['action_required']}")
+        print()
+
+    if res.get("schedule_recovery_demand_directive"):
+        print("=== [감리단 공정만회대책 요구 명령서] ===")
+        print(res.get("schedule_recovery_demand_directive"))
+        print()
+
+
+def cmd_tbm_safe(args):
+    """Generate daily TBM safety checklist."""
+    tasks = [t.strip() for t in args.tasks.split(";")] if args.tasks else ["지하 굴착", "가설 비계 설치"]
+    res = generate_daily_tbm_safety(
+        today_tasks_list=tasks,
+        date_str=args.date,
+        project_name=args.project,
+    )
+    print("\n" + "=" * 70)
+    print(f"[일일 TBM 안전점검표 및 위험성평가표 자동 생성 완료]")
+    print("=" * 70)
+    print(f"- 점검일자: {res.get('date')} | 분석 대상 공종: {', '.join(res.get('tasks_analyzed', []))}")
+    print(f"- 도출된 유해위험요인: 총 {res.get('total_risk_factors')}건 (고위험 HIGH: {res.get('high_risk_count')}건)")
+    print(f"- Word 파일: {res.get('docx_path')}")
+    print(f"- Markdown 파일: {res.get('md_path')}\n")
+
+    print("=== [금일 중점 안전관리 대책 요약] ===")
+    for idx, r in enumerate(res.get("evaluated_risks", []), 1):
+        print(f"{idx}. [{r['task']}] {r['hazard']} (위험도: {r['risk_level']})")
+        print(f"   - 대책: {r['safety_measures']}")
+        print(f"   - 점검: {r['inspection_checkpoint']}")
+    print()
+
+
+def cmd_inspect_sheet(args):
+    """Generate inspection request and result sheet."""
+    res = generate_inspection_sheet(
+        work_type=args.work_type,
+        location=args.location,
+        contractor_spec=args.spec,
+    )
+    print("\n" + "=" * 70)
+    print(f"[검측요청서 및 결과통보서 자동 생성 완료] 최종 판정: {res.get('final_verdict')}")
+    print("=" * 70)
+    print(f"- 문서번호: {res.get('doc_no')}")
+    print(f"- 검측공종: {res.get('work_type')} | 위치: {res.get('location')}")
+    print(f"- Word 파일: {res.get('docx_path')}")
+    print(f"- Markdown 파일: {res.get('md_path')}\n")
+
+
+def cmd_draft_ncr(args):
+    """Draft formal Non-Conformance Report (NCR)."""
+    res = draft_ncr_correction_order(
+        issue_description=args.issue,
+        location=args.location,
+        defect_category=args.category,
+        photo_attached=args.photo,
+        corrective_deadline=args.deadline,
+    )
+    print("\n" + "=" * 70)
+    print(f"[부적합 시정지시서 (NCR) 정식 발급 완료]")
+    print("=" * 70)
+    print(f"- 관리번호: {res.get('doc_no')}")
+    print(f"- 부적합 분류: {res.get('defect_category')} | 위치: {res.get('location')}")
+    print(f"- 시정기한: {res.get('deadline')}")
+    print(f"- Word 공문서: {res.get('docx_path')}")
+    print(f"- Markdown 공문서: {res.get('md_path')}\n")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Samwoo-CM-Bridge CLI Tool")
+    subparsers = parser.add_subparsers(dest="command", help="Available subcommands")
+
+    # serve
+    subparsers.add_parser("serve", help="Run FastMCP stdio server")
+
+    # list
+    subparsers.add_parser("list", help="List files in secure_local_data/")
+
+    # parse
+    p_parse = subparsers.add_parser("parse", help="Parse a local project file")
+    p_parse.add_argument("filename", help="Name of file in secure_local_data/")
+
+    # check-bundle
+    p_bundle = subparsers.add_parser("check-bundle", help="Batch cross-check multiple documents")
+    p_bundle.add_argument("files", nargs="+", help="Filenames to cross-check")
+
+    # audit-diff
+    p_diff = subparsers.add_parser("audit-diff", help="Audit doc diff & pay application tampering")
+    p_diff.add_argument("base_file", help="Baseline document / Rev0")
+    p_diff.add_argument("target_file", help="Target document / Rev1")
+    p_diff.add_argument("--category", "-c", default="AUTO", help="File category (AUTO, EXCEL, TEXT)")
+
+    # checklist
+    p_chk = subparsers.add_parser("checklist", help="Dynamic checklist & plan evaluator")
+    p_chk.add_argument("work_type", help="Work type (e.g. '토공/가설', '골조/콘크리트', '기계/소방', '전기/통신')")
+    p_chk.add_argument("--conditions", "-c", default="", help="Site conditions (e.g. '도심지, 지하수위, 동절기')")
+    p_chk.add_argument("--spec", "-s", default="", help="Specification file")
+    p_chk.add_argument("--plan", "-p", default="", help="Construction plan file")
+
+    # search-std
+    p_search = subparsers.add_parser("search-std", help="Semantic search for standards & laws")
+    p_search.add_argument("query", help="Natural language query")
+    p_search.add_argument("--domain", "-d", default="", help="Domain filter")
+    p_search.add_argument("--top", "-t", type=int, default=3, help="Top K results")
+
+    # memo-index
+    p_m_idx = subparsers.add_parser("memo-index", help="Index document into project memory")
+    p_m_idx.add_argument("filename", help="Document filename to index")
+
+    # memo-search
+    p_m_search = subparsers.add_parser("memo-search", help="Search project context memory")
+    p_m_search.add_argument("query", help="Search query")
+    p_m_search.add_argument("--status", "-s", default="", help="Status filter (PENDING, RESOLVED)")
+
+    # change-track
+    p_chg = subparsers.add_parser("change-track", help="Track design changes across log and plan")
+    p_chg.add_argument("change_log", help="Change log spreadsheet (XLSX)")
+    p_chg.add_argument("plan", help="Target construction plan file")
+
+    # report-weekly
+    p_rep = subparsers.add_parser("report-weekly", help="Generate weekly CM report")
+    p_rep.add_argument("--start", default="", help="Start date (YYYY.MM.DD)")
+    p_rep.add_argument("--end", default="", help="End date (YYYY.MM.DD)")
     p_rep.add_argument("--project", default="삼우씨엠 신축공사 CM현장", help="Project name")
 
     # draft-notice
@@ -506,6 +695,41 @@ def main():
     p_rev.add_argument("--calc", "-c", default="", help="Calculation spreadsheet file")
     p_rev.add_argument("--output", "-o", default="종합_CM기술검토의견서.docx", help="Output Word report filename")
     p_rev.add_argument("--project", default="삼우씨엠 신축공사 CM현장", help="Project name")
+
+    # daily-log
+    p_dlog = subparsers.add_parser("daily-log", help="Generate daily CM supervision log")
+    p_dlog.add_argument("--date", "-d", default="", help="Date (YYYY.MM.DD)")
+    p_dlog.add_argument("--weather", "-w", default="맑음 (기온: 24.5℃, 강수량: 0mm)", help="Weather")
+    p_dlog.add_argument("--activities", "-a", default="", help="Activities separated by semicolon (;)")
+    p_dlog.add_argument("--project", default="삼우씨엠 신축공사 CM현장", help="Project name")
+
+    # ocr-cert
+    p_ocr = subparsers.add_parser("ocr-cert", help="OCR test certificate / Mill Sheet parser")
+    p_ocr.add_argument("file", help="Certificate image/pdf file")
+
+    # schedule-diff
+    p_sch = subparsers.add_parser("schedule-diff", help="Analyze custom schedule progress & delay")
+    p_sch.add_argument("file", help="Schedule Excel file (XLSX)")
+
+    # tbm-safe
+    p_tbm = subparsers.add_parser("tbm-safe", help="Generate daily TBM safety checklist")
+    p_tbm.add_argument("--tasks", "-t", default="지하 토사 굴착; 가설 비계 설치; 크레인 양중", help="Tasks separated by semicolon (;)")
+    p_tbm.add_argument("--date", "-d", default="", help="Date (YYYY.MM.DD)")
+    p_tbm.add_argument("--project", default="삼우씨엠 신축공사 CM현장", help="Project name")
+
+    # inspect-sheet
+    p_insp = subparsers.add_parser("inspect-sheet", help="Generate inspection sheet & result")
+    p_insp.add_argument("work_type", help="Work type (e.g. '가설 흙막이 지보공')")
+    p_insp.add_argument("location", help="Location (e.g. '지하 2층 1구역')")
+    p_insp.add_argument("--spec", "-s", default="", help="Specification")
+
+    # draft-ncr
+    p_ncr = subparsers.add_parser("draft-ncr", help="Draft Non-Conformance Report (NCR)")
+    p_ncr.add_argument("issue", help="Defect / non-conformance description")
+    p_ncr.add_argument("location", help="Defect location")
+    p_ncr.add_argument("--category", "-c", default="시공품질 불량", help="Defect category")
+    p_ncr.add_argument("--photo", "-p", default="현장 사진 첨부", help="Photo evidence")
+    p_ncr.add_argument("--deadline", "-d", default="", help="Corrective deadline")
 
     # law
     p_law = subparsers.add_parser("law", help="Query national law article")
@@ -547,6 +771,18 @@ def main():
         cmd_draft_notice(args)
     elif args.command == "review-auto":
         cmd_review_auto(args)
+    elif args.command == "daily-log":
+        cmd_daily_log(args)
+    elif args.command == "ocr-cert":
+        cmd_ocr_cert(args)
+    elif args.command == "schedule-diff":
+        cmd_schedule_diff(args)
+    elif args.command == "tbm-safe":
+        cmd_tbm_safe(args)
+    elif args.command == "inspect-sheet":
+        cmd_inspect_sheet(args)
+    elif args.command == "draft-ncr":
+        cmd_draft_ncr(args)
     elif args.command == "law":
         cmd_law(args)
     elif args.command == "kcsc":
