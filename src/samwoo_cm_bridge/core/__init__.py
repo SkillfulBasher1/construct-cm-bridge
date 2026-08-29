@@ -8,6 +8,15 @@ from .batch_cross_checker import BatchCrossChecker, batch_cross_check_documents
 from .diff_audit_engine import DiffAuditEngine, audit_document_diff
 from .adaptive_checklist_engine import AdaptiveChecklistEngine, generate_and_evaluate_checklist
 from .semantic_standard_searcher import SemanticStandardSearcher, search_standards_by_keyword
+from .project_memory_engine import (
+    ProjectMemoryEngine,
+    index_project_instruction,
+    search_project_memory,
+    get_all_project_instructions,
+)
+from .design_change_tracker import DesignChangeTracker, track_design_changes
+from .cm_periodic_reporter import PeriodicReporter, generate_weekly_cm_report
+from .official_letter_generator import OfficialLetterGenerator, draft_official_notice
 
 __all__ = [
     "OpenApiClient",
@@ -29,4 +38,14 @@ __all__ = [
     "generate_and_evaluate_checklist",
     "SemanticStandardSearcher",
     "search_standards_by_keyword",
+    "ProjectMemoryEngine",
+    "index_project_instruction",
+    "search_project_memory",
+    "get_all_project_instructions",
+    "DesignChangeTracker",
+    "track_design_changes",
+    "PeriodicReporter",
+    "generate_weekly_cm_report",
+    "OfficialLetterGenerator",
+    "draft_official_notice",
 ]

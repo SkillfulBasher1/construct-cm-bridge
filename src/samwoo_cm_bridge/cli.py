@@ -18,6 +18,10 @@ from .core.batch_cross_checker import batch_cross_check_documents, BatchCrossChe
 from .core.diff_audit_engine import audit_document_diff, DiffAuditEngine
 from .core.adaptive_checklist_engine import generate_and_evaluate_checklist, AdaptiveChecklistEngine
 from .core.semantic_standard_searcher import search_standards_by_keyword, SemanticStandardSearcher
+from .core.project_memory_engine import index_project_instruction, search_project_memory
+from .core.design_change_tracker import track_design_changes
+from .core.cm_periodic_reporter import generate_weekly_cm_report
+from .core.official_letter_generator import draft_official_notice
 
 
 def cmd_serve(args):
@@ -315,6 +319,92 @@ def cmd_search_std(args):
     print()
 
 
+def cmd_memo_index(args):
+    """Index an official document into project memory."""
+    res = index_project_instruction(args.filename)
+    print("\n" + "=" * 70)
+    print(f"[프로젝트 메모리 색인 완료] {res.get('message')}")
+    print("=" * 70)
+    idx_data = res.get("indexed_data", {})
+    print(f"- 문서번호: {idx_data.get('doc_no')}")
+    print(f"- 시행일자: {idx_data.get('doc_date')}")
+    print(f"- 발신처: {idx_data.get('issuer')}")
+    print(f"- 건명: {idx_data.get('subject')}")
+    print(f"- 핵심 지시사항: {idx_data.get('summary')}")
+    print(f"- 조치 기한: {idx_data.get('deadline')}")
+    print(f"- 관리 상태: {idx_data.get('status')}\n")
+
+
+def cmd_memo_search(args):
+    """Search past project memory instructions."""
+    res = search_project_memory(query=args.query, status_filter=args.status)
+    print("\n" + "=" * 70)
+    print(f"[프로젝트 메모리 검색 결과] 질의어: '{res.get('query')}' (총 {res.get('total_found')}건 검색)")
+    print("=" * 70)
+
+    for idx, r in enumerate(res.get("results", []), 1):
+        print(f"{idx}. [{r['doc_no']}] {r['subject']} ({r['doc_date']} | {r['issuer']})")
+        print(f"   - 핵심 지시: {r['summary']}")
+        print(f"   - 조치기한: {r['deadline']} | 상태: {r['status']}")
+    print()
+
+
+def cmd_change_track(args):
+    """Track design changes across cumulative change log and construction plan."""
+    res = track_design_changes(args.change_log, args.plan)
+    print("\n" + "=" * 70)
+    print(f"[설계변경(VE) 누적 추적 & 반영 검증] 최종 결과: {res.get('overall_verdict')}")
+    print("=" * 70)
+    print(f"- 내역서: {res.get('change_log_file')} <---> 검증 도서: {res.get('target_plan_file')}")
+    print(f"- 변경 항목 총 {res.get('total_change_items')}건 (반영 확인: {res.get('matched_count')}건 / 누락: {res.get('omission_count')}건)\n")
+
+    print("=== [설계변경 항목별 반영 검증표] ===")
+    for idx, item in enumerate(res.get("change_tracking_matrix", []), 1):
+        sym = "✔" if "MATCH" in item["status"] else "✖"
+        print(f"{idx}. {item['item_name']} (승인 변경사양: {item['approved_change_spec']})")
+        print(f"   - 판정: {sym} {item['status']} (사유: {item['change_reason']})")
+        print(f"   - 근거: {item['evidence_in_plan']}")
+        if "OMISSION" in item["status"]:
+            print(f"   - 조치: {item['action_required']}")
+    print()
+
+
+def cmd_report_weekly(args):
+    """Generate weekly CM report."""
+    res = generate_weekly_cm_report(
+        start_date=args.start,
+        end_date=args.end,
+        project_name=args.project,
+    )
+    print("\n" + "=" * 70)
+    print(f"[주간 감리업무 보고서 자동 생성 완료]")
+    print("=" * 70)
+    print(f"- 문서번호: {res.get('doc_no')}")
+    print(f"- 보고기간: {res.get('period')}")
+    print(f"- 사업명: {res.get('project_name')}")
+    print(f"- Word 파일: {res.get('docx_path')}")
+    print(f"- Markdown 파일: {res.get('md_path')}\n")
+
+
+def cmd_draft_notice(args):
+    """Draft official outward CM notice letter."""
+    res = draft_official_notice(
+        doc_title=args.title,
+        recipient=args.recipient,
+        reference=args.ref,
+        review_result_file=args.file,
+        project_name=args.project,
+    )
+    print("\n" + "=" * 70)
+    print(f"[감리단 대외 정식 공문 기안 완료]")
+    print("=" * 70)
+    print(f"- 문서번호: {res.get('doc_no')}")
+    print(f"- 공문 건명: {res.get('doc_title')}")
+    print(f"- 수신처: {res.get('recipient')}")
+    print(f"- Word 공문서: {res.get('docx_path')}")
+    print(f"- Markdown 공문서: {res.get('md_path')}\n")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Samwoo-CM-Bridge CLI Tool")
     subparsers = parser.add_subparsers(dest="command", help="Available subcommands")
@@ -352,6 +442,34 @@ def main():
     p_search.add_argument("--domain", "-d", default="", help="Domain filter")
     p_search.add_argument("--top", "-t", type=int, default=3, help="Top K results")
 
+    # memo-index
+    p_m_idx = subparsers.add_parser("memo-index", help="Index document into project memory")
+    p_m_idx.add_argument("filename", help="Document filename to index")
+
+    # memo-search
+    p_m_search = subparsers.add_parser("memo-search", help="Search project context memory")
+    p_m_search.add_argument("query", help="Search query")
+    p_m_search.add_argument("--status", "-s", default="", help="Status filter (PENDING, RESOLVED)")
+
+    # change-track
+    p_chg = subparsers.add_parser("change-track", help="Track design changes across log and plan")
+    p_chg.add_argument("change_log", help="Change log spreadsheet (XLSX)")
+    p_chg.add_argument("plan", help="Target construction plan file")
+
+    # report-weekly
+    p_rep = subparsers.add_parser("report-weekly", help="Generate weekly CM report")
+    p_rep.add_argument("--start", default="", help="Start date (YYYY.MM.DD)")
+    p_rep.add_argument("--end", default="", help="End date (YYYY.MM.DD)")
+    p_rep.add_argument("--project", default="삼우씨엠 신축공사 CM현장", help="Project name")
+
+    # draft-notice
+    p_not = subparsers.add_parser("draft-notice", help="Draft official CM notice letter")
+    p_not.add_argument("title", help="Letter subject / title")
+    p_not.add_argument("--recipient", "-r", default="(주)대우건설 현장소장", help="Recipient")
+    p_not.add_argument("--ref", default="발주처 감독관, 품질관리팀장", help="Reference")
+    p_not.add_argument("--file", "-f", default="", help="Attached review result file")
+    p_not.add_argument("--project", default="삼우씨엠 신축공사 CM현장", help="Project name")
+
     # law
     p_law = subparsers.add_parser("law", help="Query national law article")
     p_law.add_argument("law_name", help="Name of law")
@@ -380,6 +498,16 @@ def main():
         cmd_checklist(args)
     elif args.command == "search-std":
         cmd_search_std(args)
+    elif args.command == "memo-index":
+        cmd_memo_index(args)
+    elif args.command == "memo-search":
+        cmd_memo_search(args)
+    elif args.command == "change-track":
+        cmd_change_track(args)
+    elif args.command == "report-weekly":
+        cmd_report_weekly(args)
+    elif args.command == "draft-notice":
+        cmd_draft_notice(args)
     elif args.command == "law":
         cmd_law(args)
     elif args.command == "kcsc":

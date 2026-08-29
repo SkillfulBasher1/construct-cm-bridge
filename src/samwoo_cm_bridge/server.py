@@ -17,6 +17,10 @@ from .core.batch_cross_checker import batch_cross_check_documents as _batch_cros
 from .core.diff_audit_engine import audit_document_diff as _audit_diff
 from .core.adaptive_checklist_engine import generate_and_evaluate_checklist as _checklist_eval
 from .core.semantic_standard_searcher import search_standards_by_keyword as _search_standards
+from .core.project_memory_engine import index_project_instruction as _index_instruction, search_project_memory as _search_memory
+from .core.design_change_tracker import track_design_changes as _track_changes
+from .core.cm_periodic_reporter import generate_weekly_cm_report as _gen_weekly_report
+from .core.official_letter_generator import draft_official_notice as _draft_notice
 
 logger = logging.getLogger("samwoo_cm_bridge")
 
@@ -226,6 +230,113 @@ def search_standards_by_keyword(query: str, domain: str = "", top_k: int = 3) ->
     """
     try:
         res = _search_standards(query=query, domain=domain if domain else None, top_k=top_k)
+        return json.dumps(res, ensure_ascii=False, indent=2)
+    except Exception as e:
+        return json.dumps({"status": "ERROR", "error": str(e)}, ensure_ascii=False)
+
+
+@mcp.tool()
+def index_project_instruction(filename: str) -> str:
+    """발주처 공문, 설계변경 지시서, 회의록(HWPX/DOCX/PDF)을 읽어 핵심 지시내용, 수치, 조치기한을
+    로컬 SQLite DB(project_memory.db)에 영구 색인(Indexing)합니다.
+
+    Args:
+        filename: 인덱싱할 공문/지시서 파일명 (예: 'sample_발주처_설계변경지시공문.hwpx')
+    """
+    try:
+        res = _index_instruction(filename=filename)
+        return json.dumps(res, ensure_ascii=False, indent=2)
+    except Exception as e:
+        return json.dumps({"status": "ERROR", "error": str(e)}, ensure_ascii=False)
+
+
+@mcp.tool()
+def search_project_memory(query: str, status_filter: str = "") -> str:
+    """과거 발주처 지시사항, 회의록 결정사항, 설계변경 히스토리를 자연어로 검색합니다.
+    (예: "지하 주차장 램프 지시내용", "계측 주기 변경 공문")
+
+    Args:
+        query: 자연어 검색어
+        status_filter: 조치 상태 필터 ('PENDING', 'RESOLVED' 등, 선택 사항)
+    """
+    try:
+        res = _search_memory(query=query, status_filter=status_filter if status_filter else None)
+        return json.dumps(res, ensure_ascii=False, indent=2)
+    except Exception as e:
+        return json.dumps({"status": "ERROR", "error": str(e)}, ensure_ascii=False)
+
+
+@mcp.tool()
+def track_design_changes(change_log_file: str, target_plan_file: str) -> str:
+    """누적 설계변경(VE) 내역서(XLSX)의 회차별 변경 사양이 시공사가 제출한 신규 시공계획서(HWPX/DOCX)에
+    누락 없이 100% 반영되었는지 역추적 검증합니다.
+
+    Args:
+        change_log_file: 누적 설계변경 총괄내역서 (예: 'sample_설계변경_총괄내역서.xlsx')
+        target_plan_file: 검증 대상 시공계획서 (예: 'sample_건축_단열및시공계획서.docx')
+    """
+    try:
+        res = _track_changes(change_log_file=change_log_file, target_plan_file=target_plan_file)
+        return json.dumps(res, ensure_ascii=False, indent=2)
+    except Exception as e:
+        return json.dumps({"status": "ERROR", "error": str(e)}, ensure_ascii=False)
+
+
+@mcp.tool()
+def generate_weekly_cm_report(
+    start_date: str = "",
+    end_date: str = "",
+    project_name: str = "삼우씨엠 신축공사 CM현장",
+    chief_cm_name: str = "김수석 책임건설사업관리기술인",
+) -> str:
+    """프로젝트 메모리(지시사항, 검토 이력, 설계변경 현황)를 취합하여 삼우씨엠 표준 주간/월간 감리보고서(.docx)를 자동 생성합니다.
+
+    Args:
+        start_date: 보고 시작일자 (예: '2026.08.15')
+        end_date: 보고 종료일자 (예: '2026.08.22')
+        project_name: 프로젝트명
+        chief_cm_name: 책임건설사업관리기술인 성명
+    """
+    try:
+        res = _gen_weekly_report(
+            start_date=start_date if start_date else None,
+            end_date=end_date if end_date else None,
+            project_name=project_name,
+            chief_cm_name=chief_cm_name,
+        )
+        return json.dumps(res, ensure_ascii=False, indent=2)
+    except Exception as e:
+        return json.dumps({"status": "ERROR", "error": str(e)}, ensure_ascii=False)
+
+
+@mcp.tool()
+def draft_official_notice(
+    doc_title: str,
+    recipient: str = "(주)대우건설 현장소장",
+    reference: str = "발주처 감독관, 품질관리팀장",
+    review_result_file: str = "",
+    project_name: str = "삼우씨엠 신축공사 CM현장",
+    chief_cm_name: str = "김수석 책임건설사업관리기술인",
+) -> str:
+    """시공계획서 검토결과(FAIL/보완필요)를 기반으로 시공사/발주처 발송용 정식 감리단 대외 공문(.docx/.md)을 자동 기안합니다.
+
+    Args:
+        doc_title: 공문 제목 (예: '가설 흙막이 시공계획서 검토결과 통보 및 시정 조치 지시의 건')
+        recipient: 수신처 (예: '(주)대우건설 현장소장')
+        reference: 참조처 (예: '발주처 개발사업팀 감독관')
+        review_result_file: 첨부/근거 검토의견서 파일명 (선택 사항)
+        project_name: 현장 사업명
+        chief_cm_name: 책임건설사업관리기술인 성명
+    """
+    try:
+        res = _draft_notice(
+            doc_title=doc_title,
+            recipient=recipient,
+            reference=reference,
+            review_result_file=review_result_file if review_result_file else None,
+            project_name=project_name,
+            chief_cm_name=chief_cm_name,
+        )
         return json.dumps(res, ensure_ascii=False, indent=2)
     except Exception as e:
         return json.dumps({"status": "ERROR", "error": str(e)}, ensure_ascii=False)
