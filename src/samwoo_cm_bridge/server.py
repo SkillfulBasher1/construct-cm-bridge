@@ -32,6 +32,10 @@ from .core.custom_requirement_auditor import audit_custom_spec_requirements as _
 from .core.equipment_quantity_auditor import (
     audit_calculation_quantity_drawing_match as _audit_3way_match,
 )
+from .core.concrete_qc_tracker import register_concrete_pour as _register_pour
+from .core.ncr_action_sheet_builder import generate_before_after_sheet as _gen_ba_sheet
+from .core.subcontract_auditor import audit_subcontract_agreement as _audit_subcontract
+from .core.cm_final_report_assembler import assemble_cm_final_report as _assemble_final
 
 logger = logging.getLogger("samwoo_cm_bridge")
 
@@ -587,6 +591,150 @@ def audit_calculation_quantity_drawing_match(
             boq_file=boq_file,
             drawing_pdf_file=drawing_pdf_file,
             project_name=project_name,
+        )
+        return json.dumps(res, ensure_ascii=False, indent=2)
+    except Exception as e:
+        return json.dumps({"status": "ERROR", "error": str(e)}, ensure_ascii=False)
+
+
+@mcp.tool()
+def register_concrete_pour(
+    date_str: str,
+    location: str,
+    spec_fck: float,
+    volume_m3: float,
+    remicon_spec: str = "25-24-150 (자갈-강도-슬럼프)",
+    measured_7d_mpa: float = None,
+    measured_28d_mpa: float = None,
+    project_name: str = "삼우씨엠 신축공사 CM현장",
+) -> str:
+    """콘크리트 타설 이벤트를 등록하고, 7일/28일 압축강도 시험일자 캘린더 자동 계산 및 품질관리대장(XLSX)에 누적 기록합니다.
+
+    Args:
+        date_str: 타설 일자 (예: '2026.08.29')
+        location: 타설 부위/구조체 (예: '지하 2층 바닥 슬래브 1구역')
+        spec_fck: 설계기준강도 (MPa, 예: 24.0, 27.0, 30.0)
+        volume_m3: 타설량 (m3, 예: 320.0)
+        remicon_spec: 레미콘 규격 (굵은골재-강도-슬럼프)
+        measured_7d_mpa: 7일 압축강도 측정값 (선택 사항, MPa)
+        measured_28d_mpa: 28일 압축강도 측정값 (선택 사항, MPa)
+        project_name: 현장 사업명
+    """
+    try:
+        res = _register_pour(
+            date_str=date_str,
+            location=location,
+            spec_fck=spec_fck,
+            volume_m3=volume_m3,
+            remicon_spec=remicon_spec,
+            measured_7d_mpa=measured_7d_mpa,
+            measured_28d_mpa=measured_28d_mpa,
+            project_name=project_name,
+        )
+        return json.dumps(res, ensure_ascii=False, indent=2)
+    except Exception as e:
+        return json.dumps({"status": "ERROR", "error": str(e)}, ensure_ascii=False)
+
+
+@mcp.tool()
+def generate_before_after_sheet(
+    issue_title: str,
+    before_img: str,
+    after_img: str,
+    description: str,
+    location: str = "지하 2층 1구역",
+    action_date: str = "",
+    ncr_no: str = "SWCM-NCR-20260829-01",
+    project_name: str = "삼우씨엠 신축공사 CM현장",
+    inspector_name: str = "김수석 책임건설사업관리기술인",
+    contractor_name: str = "(주)대우건설 현장소장",
+) -> str:
+    """현장 시정지시(NCR) 지적 사진(Before)과 시공사 조치 완료 사진(After)을 1:1로 매핑한
+    삼우씨엠 표준 '시정조치 확인서(.docx / .md)'를 자동 생성합니다.
+
+    Args:
+        issue_title: 지적 건명 (예: '동바리 수평연결재 설치 누락')
+        before_img: 조치 전 지적 사진 파일명 (예: 'sample_조치전사진.jpg')
+        after_img: 조치 후 시정 사진 파일명 (예: 'sample_조치후사진.jpg')
+        description: 지적 및 시정조치 내용 설명
+        location: 현장 부위
+        action_date: 조치완료 일자
+        ncr_no: 관련 부적합보고서(NCR) 번호
+        project_name: 현장 사업명
+        inspector_name: 감리원 성명
+        contractor_name: 시공사 현장소장 성명
+    """
+    try:
+        res = _gen_ba_sheet(
+            issue_title=issue_title,
+            before_img=before_img,
+            after_img=after_img,
+            description=description,
+            location=location,
+            action_date=action_date,
+            ncr_no=ncr_no,
+            project_name=project_name,
+            inspector_name=inspector_name,
+            contractor_name=contractor_name,
+        )
+        return json.dumps(res, ensure_ascii=False, indent=2)
+    except Exception as e:
+        return json.dumps({"status": "ERROR", "error": str(e)}, ensure_ascii=False)
+
+
+@mcp.tool()
+def audit_subcontract_agreement(
+    subcontract_excel_file: str,
+    contractor_name: str = "(주)대우건설",
+    subcontractor_name: str = "(주)삼우토건",
+    project_name: str = "삼우씨엠 신축공사 CM현장",
+) -> str:
+    """하도급 내역서(XLSX)를 파싱하여 건설산업기본법 기준 하도급 비율(82% 이상), 직접시공비율 및
+    전문건설업 면허 적정성을 검토하고 '하도급계약 적정성 검토의견서(.docx)'를 자동 작성합니다.
+
+    Args:
+        subcontract_excel_file: 하도급 계약/내역 엑셀 파일명 (예: 'sample_하도급내역서.xlsx')
+        contractor_name: 원수급인(원도급자) 상호
+        subcontractor_name: 하수급인(하도급자) 상호
+        project_name: 현장 사업명
+    """
+    try:
+        res = _audit_subcontract(
+            subcontract_excel_file=subcontract_excel_file,
+            contractor_name=contractor_name,
+            subcontractor_name=subcontractor_name,
+            project_name=project_name,
+        )
+        return json.dumps(res, ensure_ascii=False, indent=2)
+    except Exception as e:
+        return json.dumps({"status": "ERROR", "error": str(e)}, ensure_ascii=False)
+
+
+@mcp.tool()
+def assemble_cm_final_report(
+    project_name: str = "삼우씨엠 신축공사 CM현장",
+    report_type: str = "준공 감리완료보고서",
+    chief_cm_name: str = "김수석 책임건설사업관리기술인",
+    client_name: str = "(주)삼우건설 발주처",
+    contractor_name: str = "(주)대우건설",
+) -> str:
+    """프로젝트 메모리 DB(`project_memory.db`)와 누적 감리 산출물을 원클릭 스캔하여
+    공정·품질·안전·시정지시·설계변경 실적이 총망라된 공식 '준공 감리완료보고서(.docx / .md)'를 일괄 조립합니다.
+
+    Args:
+        project_name: 현장 사업명
+        report_type: 보고서 종류 ('준공 감리완료보고서', '분기 감리보고서')
+        chief_cm_name: 책임건설사업관리기술인 성명
+        client_name: 발주자 상호
+        contractor_name: 시공자 상호
+    """
+    try:
+        res = _assemble_final(
+            project_name=project_name,
+            report_type=report_type,
+            chief_cm_name=chief_cm_name,
+            client_name=client_name,
+            contractor_name=contractor_name,
         )
         return json.dumps(res, ensure_ascii=False, indent=2)
     except Exception as e:

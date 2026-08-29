@@ -33,6 +33,10 @@ from .core.inspection_ncr_generator import (
 )
 from .core.custom_requirement_auditor import audit_custom_spec_requirements
 from .core.equipment_quantity_auditor import audit_calculation_quantity_drawing_match
+from .core.concrete_qc_tracker import register_concrete_pour
+from .core.ncr_action_sheet_builder import generate_before_after_sheet
+from .core.subcontract_auditor import audit_subcontract_agreement
+from .core.cm_final_report_assembler import assemble_cm_final_report
 
 
 def cmd_serve(args):
@@ -1023,9 +1027,247 @@ def main():
     # audit-match
     p_match = subparsers.add_parser("audit-match", help="Audit 3-way calculation vs BOQ vs drawing PDF match")
     p_match.add_argument("--calc", "-c", required=True, help="Calculation spreadsheet file (XLSX)")
+def cmd_qc_concrete(args):
+    """Register concrete pour and track strength."""
+    res = register_concrete_pour(
+        date_str=args.date,
+        location=args.location,
+        spec_fck=args.fck,
+        volume_m3=args.volume,
+        remicon_spec=args.spec,
+        measured_7d_mpa=args.m7d,
+        measured_28d_mpa=args.m28d,
+        project_name=args.project,
+    )
+    r7_str = f"{res.get('rate_7d_pct'):.1f}%" if res.get("rate_7d_pct") is not None else "-"
+    r28_str = f"{res.get('rate_28d_pct'):.1f}%" if res.get("rate_28d_pct") is not None else "-"
+
+    print("\n" + "=" * 70)
+    print(f"[콘크리트 타설 등록 및 품질시험 관리] 최종 판정: {res.get('verdict')}")
+    print("=" * 70)
+    print(f"- 관리번호: {res.get('pour_no')} | 타설일자: {res.get('pour_date')}")
+    print(f"- 타설부위: {res.get('location')} | 타설량: {res.get('volume_m3'):,.0f} m3 (규격: {res.get('remicon_spec')})")
+    print(f"- 설계기준강도(fck): {res.get('spec_fck_mpa')} MPa")
+    print(f"- 7일 강도 시험일: {res.get('test_7d_date')} (D{res.get('days_until_7d_test'):+d}일) ➔ 측정: {res.get('measured_7d_mpa') or '-'} MPa ({r7_str})")
+    print(f"- 28일 강도 시험일: {res.get('test_28d_date')} (D{res.get('days_until_28d_test'):+d}일) ➔ 측정: {res.get('measured_28d_mpa') or '-'} MPa ({r28_str})")
+    print(f"- 품질관리대장(XLSX): {res.get('ledger_path')}\n")
+
+
+def cmd_sheet_ba(args):
+    """Generate Before / After photo verification sheet."""
+    res = generate_before_after_sheet(
+        issue_title=args.title,
+        before_img=args.before,
+        after_img=args.after,
+        description=args.desc,
+        location=args.location,
+        project_name=args.project,
+    )
+    print("\n" + "=" * 70)
+    print(f"[시정조치 확인서 (Before/After) 카드 생성 완료]")
+    print("=" * 70)
+    print(f"- 문서번호: {res.get('doc_no')} (관련 NCR: {res.get('ncr_no')})")
+    print(f"- 지적건명: {res.get('issue_title')} | 위치: {res.get('location')}")
+    print(f"- Word 파일: {res.get('docx_path')}")
+    print(f"- Markdown 파일: {res.get('md_path')}\n")
+
+
+def cmd_audit_subcon(args):
+    """Audit subcontract agreement and legal compliance."""
+    res = audit_subcontract_agreement(
+        subcontract_excel_file=args.file,
+        contractor_name=args.contractor,
+        subcontractor_name=args.subcontractor,
+        project_name=args.project,
+    )
+    print("\n" + "=" * 70)
+    print(f"[하도급계약 적정성 검토 완료] 최종 판정: {res.get('overall_verdict')}")
+    print("=" * 70)
+    print(f"- 공종명: {res.get('contract_work_name')}")
+    print(f"- 도급액: {res.get('original_contract_amount'):,.0f}원 vs 하도급액: {res.get('subcontract_amount'):,.0f}원")
+    print(f"- 하도급 비율: {res.get('subcontract_ratio_pct'):.2f}% (법정 기준: 82.0% 이상)")
+    print(f"- Word 파일: {res.get('docx_path')}")
+    print(f"- Markdown 파일: {res.get('md_path')}\n")
+
+    print("=== [법정 심사기준별 세부 검토 대조표] ===")
+    for item in res.get("review_matrix", []):
+        sym = "✔" if "PASS" in item["status"] or "적정" in item["status"] or "적합" in item["status"] else "⚠️"
+        print(f"{item['no']}. {item['review_topic']} ➔ {sym} {item['status']}")
+        print(f"   - 기준: {item['legal_criteria']}")
+        print(f"   - 제출: {item['submitted_value']}")
+        print(f"   - 의견: {item['action']}")
+    print()
+
+
+def cmd_assemble_report(args):
+    """Assemble final completion report from cumulative project records."""
+    res = assemble_cm_final_report(
+        project_name=args.project,
+        report_type=args.type,
+    )
+    print("\n" + "=" * 70)
+    print(f"[{res.get('report_type')} 자동 일괄 조립 완료]")
+    print("=" * 70)
+    print(f"- 문서번호: {res.get('doc_no')} | 공사명: {res.get('project_name')}")
+    print(f"- 종합 공정률: {res.get('final_progress_pct')}% (준공 달성)")
+    print(f"- 취합된 발주처/설계변경 지시: {res.get('assembled_instructions_count')}건")
+    print(f"- 스캔된 감리 산출물 도서: 총 {res.get('scanned_artifacts_count')}건")
+    print(f"- Word 완성본: {res.get('docx_path')}")
+    print(f"- Markdown 완성본: {res.get('md_path')}\n")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Samwoo-CM-Bridge CLI Tool")
+    subparsers = parser.add_subparsers(dest="command", help="Available subcommands")
+
+    # serve
+    subparsers.add_parser("serve", help="Run FastMCP stdio server")
+
+    # list
+    subparsers.add_parser("list", help="List files in secure_local_data/")
+
+    # parse
+    p_parse = subparsers.add_parser("parse", help="Parse a local project file")
+    p_parse.add_argument("filename", help="Name of file in secure_local_data/")
+
+    # check-bundle
+    p_bundle = subparsers.add_parser("check-bundle", help="Batch cross-check multiple documents")
+    p_bundle.add_argument("files", nargs="+", help="Filenames to cross-check")
+
+    # audit-diff
+    p_diff = subparsers.add_parser("audit-diff", help="Audit doc diff & pay application tampering")
+    p_diff.add_argument("base_file", help="Baseline document / Rev0")
+    p_diff.add_argument("target_file", help="Target document / Rev1")
+    p_diff.add_argument("--category", "-c", default="AUTO", help="File category (AUTO, EXCEL, TEXT)")
+
+    # checklist
+    p_chk = subparsers.add_parser("checklist", help="Dynamic checklist & plan evaluator")
+    p_chk.add_argument("work_type", help="Work type (e.g. '토공/가설', '골조/콘크리트', '기계/소방', '전기/통신')")
+    p_chk.add_argument("--conditions", "-c", default="", help="Site conditions (e.g. '도심지, 지하수위, 동절기')")
+    p_chk.add_argument("--spec", "-s", default="", help="Specification file")
+    p_chk.add_argument("--plan", "-p", default="", help="Construction plan file")
+
+    # search-std
+    p_search = subparsers.add_parser("search-std", help="Semantic search for standards & laws")
+    p_search.add_argument("query", help="Natural language query")
+    p_search.add_argument("--domain", "-d", default="", help="Domain filter")
+    p_search.add_argument("--top", "-t", type=int, default=3, help="Top K results")
+
+    # memo-index
+    p_m_idx = subparsers.add_parser("memo-index", help="Index document into project memory")
+    p_m_idx.add_argument("filename", help="Document filename to index")
+
+    # memo-search
+    p_m_search = subparsers.add_parser("memo-search", help="Search project context memory")
+    p_m_search.add_argument("query", help="Search query")
+    p_m_search.add_argument("--status", "-s", default="", help="Status filter (PENDING, RESOLVED)")
+
+    # change-track
+    p_chg = subparsers.add_parser("change-track", help="Track design changes across log and plan")
+    p_chg.add_argument("change_log", help="Change log spreadsheet (XLSX)")
+    p_chg.add_argument("plan", help="Target construction plan file")
+
+    # report-weekly
+    p_rep = subparsers.add_parser("report-weekly", help="Generate weekly CM report")
+    p_rep.add_argument("--start", default="", help="Start date (YYYY.MM.DD)")
+    p_rep.add_argument("--end", default="", help="End date (YYYY.MM.DD)")
+    p_rep.add_argument("--project", default="삼우씨엠 신축공사 CM현장", help="Project name")
+
+    # draft-notice
+    p_not = subparsers.add_parser("draft-notice", help="Draft official CM notice letter")
+    p_not.add_argument("title", help="Letter subject / title")
+    p_not.add_argument("--recipient", "-r", default="(주)대우건설 현장소장", help="Recipient")
+    p_not.add_argument("--ref", default="발주처 감독관, 품질관리팀장", help="Reference")
+    p_not.add_argument("--file", "-f", default="", help="Attached review result file")
+    p_not.add_argument("--project", default="삼우씨엠 신축공사 CM현장", help="Project name")
+
+    # review-auto
+    p_rev = subparsers.add_parser("review-auto", help="End-to-end one-click comprehensive review pipeline")
+    p_rev.add_argument("target_plan_file", help="Contractor construction plan file")
+    p_rev.add_argument("--spec", "-s", default="", help="Specification file")
+    p_rev.add_argument("--calc", "-c", default="", help="Calculation spreadsheet file")
+    p_rev.add_argument("--output", "-o", default="종합_CM기술검토의견서.docx", help="Output Word report filename")
+    p_rev.add_argument("--project", default="삼우씨엠 신축공사 CM현장", help="Project name")
+
+    # daily-log
+    p_dlog = subparsers.add_parser("daily-log", help="Generate daily CM supervision log")
+    p_dlog.add_argument("--date", "-d", default="", help="Date (YYYY.MM.DD)")
+    p_dlog.add_argument("--weather", "-w", default="맑음 (기온: 24.5℃, 강수량: 0mm)", help="Weather")
+    p_dlog.add_argument("--activities", "-a", default="", help="Activities separated by semicolon (;)")
+    p_dlog.add_argument("--project", default="삼우씨엠 신축공사 CM현장", help="Project name")
+
+    # ocr-cert
+    p_ocr = subparsers.add_parser("ocr-cert", help="OCR test certificate / Mill Sheet parser")
+    p_ocr.add_argument("file", help="Certificate image/pdf file")
+
+    # schedule-diff
+    p_sch = subparsers.add_parser("schedule-diff", help="Analyze custom schedule progress & delay")
+    p_sch.add_argument("file", help="Schedule Excel file (XLSX)")
+
+    # tbm-safe
+    p_tbm = subparsers.add_parser("tbm-safe", help="Generate daily TBM safety checklist")
+    p_tbm.add_argument("--tasks", "-t", default="지하 토사 굴착; 가설 비계 설치; 크레인 양중", help="Tasks separated by semicolon (;)")
+    p_tbm.add_argument("--date", "-d", default="", help="Date (YYYY.MM.DD)")
+    p_tbm.add_argument("--project", default="삼우씨엠 신축공사 CM현장", help="Project name")
+
+    # inspect-sheet
+    p_insp = subparsers.add_parser("inspect-sheet", help="Generate inspection sheet & result")
+    p_insp.add_argument("work_type", help="Work type (e.g. '가설 흙막이 지보공')")
+    p_insp.add_argument("location", help="Location (e.g. '지하 2층 1구역')")
+    p_insp.add_argument("--spec", "-s", default="", help="Specification")
+
+    # draft-ncr
+    p_ncr = subparsers.add_parser("draft-ncr", help="Draft Non-Conformance Report (NCR)")
+    p_ncr.add_argument("issue", help="Defect / non-conformance description")
+    p_ncr.add_argument("location", help="Defect location")
+    p_ncr.add_argument("--category", "-c", default="시공품질 불량", help="Defect category")
+    p_ncr.add_argument("--photo", "-p", default="현장 사진 첨부", help="Photo evidence")
+    p_ncr.add_argument("--deadline", "-d", default="", help="Corrective deadline")
+
+    # audit-req
+    p_req = subparsers.add_parser("audit-req", help="Audit custom spec submission requirements")
+    p_req.add_argument("--spec", "-s", required=True, help="Special specification file (HWPX/DOCX)")
+    p_req.add_argument("--work-type", "-w", default="", help="Target work type filter")
+    p_req.add_argument("--project", default="삼우씨엠 신축공사 CM현장", help="Project name")
+
+    # audit-match
+    p_match = subparsers.add_parser("audit-match", help="Audit 3-way calculation vs BOQ vs drawing PDF match")
+    p_match.add_argument("--calc", "-c", required=True, help="Calculation spreadsheet file (XLSX)")
     p_match.add_argument("--boq", "-b", required=True, help="Quantity takeoff / BOQ file (XLSX)")
     p_match.add_argument("--pdf", "-p", required=True, help="Drawing equipment schedule file (PDF)")
     p_match.add_argument("--project", default="삼우씨엠 신축공사 CM현장", help="Project name")
+
+    # qc-concrete
+    p_conc = subparsers.add_parser("qc-concrete", help="Register concrete pour and track strength")
+    p_conc.add_argument("--date", "-d", default="2026.08.29", help="Pour date (YYYY.MM.DD)")
+    p_conc.add_argument("--location", "-l", default="지하 2층 바닥 슬래브 1구역", help="Pour location")
+    p_conc.add_argument("--fck", "-f", type=float, default=24.0, help="Design fck (MPa)")
+    p_conc.add_argument("--volume", "-v", type=float, default=320.0, help="Pour volume (m3)")
+    p_conc.add_argument("--spec", "-s", default="25-24-150", help="Remicon spec")
+    p_conc.add_argument("--m7d", type=float, default=None, help="Measured 7-day strength (MPa)")
+    p_conc.add_argument("--m28d", type=float, default=None, help="Measured 28-day strength (MPa)")
+    p_conc.add_argument("--project", default="삼우씨엠 신축공사 CM현장", help="Project name")
+
+    # sheet-ba
+    p_ba = subparsers.add_parser("sheet-ba", help="Generate Before/After photo sheet")
+    p_ba.add_argument("title", help="Issue title")
+    p_ba.add_argument("before", help="Before photo filename")
+    p_ba.add_argument("after", help="After photo filename")
+    p_ba.add_argument("--desc", "-d", default="현장 시정조치 완료 및 KCS 기준 적합 확인", help="Action description")
+    p_ba.add_argument("--location", "-l", default="지하 2층 1구역", help="Location")
+    p_ba.add_argument("--project", default="삼우씨엠 신축공사 CM현장", help="Project name")
+
+    # audit-subcon
+    p_sub = subparsers.add_parser("audit-subcon", help="Audit subcontract agreement")
+    p_sub.add_argument("file", help="Subcontract agreement Excel file (XLSX)")
+    p_sub.add_argument("--contractor", "-c", default="(주)대우건설", help="Contractor name")
+    p_sub.add_argument("--subcontractor", "-s", default="(주)삼우토건", help="Subcontractor name")
+    p_sub.add_argument("--project", default="삼우씨엠 신축공사 CM현장", help="Project name")
+
+    # assemble-report
+    p_ass = subparsers.add_parser("assemble-report", help="Assemble final CM completion report")
+    p_ass.add_argument("--project", default="삼우씨엠 신축공사 CM현장", help="Project name")
+    p_ass.add_argument("--type", "-t", default="준공 감리완료보고서", help="Report type")
 
     # law
     p_law = subparsers.add_parser("law", help="Query national law article")
@@ -1083,6 +1325,14 @@ def main():
         cmd_audit_req(args)
     elif args.command == "audit-match":
         cmd_audit_match(args)
+    elif args.command == "qc-concrete":
+        cmd_qc_concrete(args)
+    elif args.command == "sheet-ba":
+        cmd_sheet_ba(args)
+    elif args.command == "audit-subcon":
+        cmd_audit_subcon(args)
+    elif args.command == "assemble-report":
+        cmd_assemble_report(args)
     elif args.command == "law":
         cmd_law(args)
     elif args.command == "kcsc":

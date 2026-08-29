@@ -35,6 +35,22 @@ from .equipment_quantity_auditor import (
     EquipmentQuantityAuditor,
     audit_calculation_quantity_drawing_match,
 )
+from .concrete_qc_tracker import (
+    ConcreteQCTracker,
+    register_concrete_pour,
+)
+from .ncr_action_sheet_builder import (
+    NCRActionSheetBuilder,
+    generate_before_after_sheet,
+)
+from .subcontract_auditor import (
+    SubcontractAuditor,
+    audit_subcontract_agreement,
+)
+from .cm_final_report_assembler import (
+    CMFinalReportAssembler,
+    assemble_cm_final_report,
+)
 
 __all__ = [
     "OpenApiClient",
@@ -83,4 +99,12 @@ __all__ = [
     "audit_custom_spec_requirements",
     "EquipmentQuantityAuditor",
     "audit_calculation_quantity_drawing_match",
+    "ConcreteQCTracker",
+    "register_concrete_pour",
+    "NCRActionSheetBuilder",
+    "generate_before_after_sheet",
+    "SubcontractAuditor",
+    "audit_subcontract_agreement",
+    "CMFinalReportAssembler",
+    "assemble_cm_final_report",
 ]
