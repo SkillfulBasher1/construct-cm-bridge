@@ -31,6 +31,10 @@ from .custom_requirement_auditor import (
     CustomRequirementAuditor,
     audit_custom_spec_requirements,
 )
+from .equipment_quantity_auditor import (
+    EquipmentQuantityAuditor,
+    audit_calculation_quantity_drawing_match,
+)
 
 __all__ = [
     "OpenApiClient",
@@ -77,4 +81,6 @@ __all__ = [
     "draft_ncr_correction_order",
     "CustomRequirementAuditor",
     "audit_custom_spec_requirements",
+    "EquipmentQuantityAuditor",
+    "audit_calculation_quantity_drawing_match",
 ]

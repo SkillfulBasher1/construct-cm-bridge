@@ -29,6 +29,9 @@ from .core.inspection_ncr_generator import (
     draft_ncr_correction_order as _draft_ncr,
 )
 from .core.custom_requirement_auditor import audit_custom_spec_requirements as _audit_spec_reqs
+from .core.equipment_quantity_auditor import (
+    audit_calculation_quantity_drawing_match as _audit_3way_match,
+)
 
 logger = logging.getLogger("samwoo_cm_bridge")
 
@@ -555,6 +558,34 @@ def audit_custom_spec_requirements(
         res = _audit_spec_reqs(
             spec_file=spec_file,
             target_work_type=target_work_type if target_work_type else None,
+            project_name=project_name,
+        )
+        return json.dumps(res, ensure_ascii=False, indent=2)
+    except Exception as e:
+        return json.dumps({"status": "ERROR", "error": str(e)}, ensure_ascii=False)
+
+
+@mcp.tool()
+def audit_calculation_quantity_drawing_match(
+    calc_file: str,
+    boq_file: str,
+    drawing_pdf_file: str,
+    project_name: str = "삼우씨엠 신축공사 CM현장",
+) -> str:
+    """계산서(XLSX), 수량산출서(XLSX), 도면 PDF(장비일람표) 간 장비 규격, 용량, 수량 상호 불일치,
+    산출서 수식 오류(수량*단가!=금액) 및 비정상 이상치(음수값 등)를 전수 교차 검증합니다.
+
+    Args:
+        calc_file: 계산서 엑셀 파일명 (예: 'sample_소방_소화수조및펌프계산서.xlsx')
+        boq_file: 수량산출서 엑셀 파일명 (예: 'sample_소방_수량산출서.xlsx')
+        drawing_pdf_file: 도면 장비일람표 PDF 파일명 (예: 'sample_소방_장비일람표_도면.pdf')
+        project_name: 현장 사업명
+    """
+    try:
+        res = _audit_3way_match(
+            calc_file=calc_file,
+            boq_file=boq_file,
+            drawing_pdf_file=drawing_pdf_file,
             project_name=project_name,
         )
         return json.dumps(res, ensure_ascii=False, indent=2)
