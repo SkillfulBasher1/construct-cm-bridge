@@ -14,6 +14,9 @@ from .core.doc_parser import read_local_project_file as _read_file, list_secure_
 from .core.formula_engine import verify_calculation_safety as _verify_math
 from .core.docx_exporter import export_review_document as _export_doc
 from .core.batch_cross_checker import batch_cross_check_documents as _batch_cross_check
+from .core.diff_audit_engine import audit_document_diff as _audit_diff
+from .core.adaptive_checklist_engine import generate_and_evaluate_checklist as _checklist_eval
+from .core.semantic_standard_searcher import search_standards_by_keyword as _search_standards
 
 logger = logging.getLogger("samwoo_cm_bridge")
 
@@ -160,6 +163,69 @@ def batch_cross_check_documents(filenames: list[str]) -> str:
     """
     try:
         res = _batch_cross_check(filenames=filenames)
+        return json.dumps(res, ensure_ascii=False, indent=2)
+    except Exception as e:
+        return json.dumps({"status": "ERROR", "error": str(e)}, ensure_ascii=False)
+
+
+@mcp.tool()
+def audit_document_diff(base_file: str, target_file: str, file_category: str = "AUTO") -> str:
+    """기성내역서(XLSX) 단가/수량/금액 변조 및 도서(HWPX/DOCX) 개정본(Revision) 변경점 전수 감사 도구입니다.
+    - 기성내역서: 전회 승인단가 대비 임의 인상, 수식 하드코딩 과대청구, 도급수량 초과, 미승인 비목 자동 탐지
+    - 설계도서/시방서: 삭제/추가/수정 조항 추출 및 설계 안전율/기준 완화(CRITICAL) 감지
+
+    Args:
+        base_file: 기준 파일명 (예: 'sample_기성내역서_Rev0.xlsx', '특기시방서_Rev0.hwpx')
+        target_file: 변경/검토 대상 파일명 (예: 'sample_기성내역서_Rev1.xlsx', '특기시방서_Rev1.hwpx')
+        file_category: 파일 구분 ('AUTO', 'EXCEL', 'TEXT')
+    """
+    try:
+        res = _audit_diff(base_file=base_file, target_file=target_file, file_category=file_category)
+        return json.dumps(res, ensure_ascii=False, indent=2)
+    except Exception as e:
+        return json.dumps({"status": "ERROR", "error": str(e)}, ensure_ascii=False)
+
+
+@mcp.tool()
+def generate_and_evaluate_checklist(
+    work_type: str,
+    site_conditions: str = "",
+    spec_file: str = "",
+    plan_file: str = "",
+) -> str:
+    """현장 특성(도심지, 고지하수위, 암반, 동절기 등) 및 특기시방서 기반으로 15~20개 맞춤형 CM 체크리스트를
+    동적으로 생성하고, 시공사 제출 시공계획서(HWPX/DOCX)를 자동 스캔하여 적합/보완 판정 및 근거를 매핑합니다.
+
+    Args:
+        work_type: 대상 공종 ('토공/가설', '골조/콘크리트', '기계/소방', '전기/통신', '마감/방수')
+        site_conditions: 현장 특수 조건 (예: '도심지 인접, 고지하수위, 암반발파, 동절기')
+        spec_file: 발주처 특기시방서 파일명 (선택 사항, 예: 'sample_과업지시서_특기시방.hwpx')
+        plan_file: 시공사 제출 시공계획서 파일명 (선택 사항, 예: 'sample_건축_단열및시공계획서.docx')
+    """
+    try:
+        res = _checklist_eval(
+            work_type=work_type,
+            site_conditions=site_conditions,
+            spec_file=spec_file if spec_file else None,
+            plan_file=plan_file if plan_file else None,
+        )
+        return json.dumps(res, ensure_ascii=False, indent=2)
+    except Exception as e:
+        return json.dumps({"status": "ERROR", "error": str(e)}, ensure_ascii=False)
+
+
+@mcp.tool()
+def search_standards_by_keyword(query: str, domain: str = "", top_k: int = 3) -> str:
+    """자연어 공학 질의(예: '버팀보 허용응력', '피난계단 보행거리', '소화수조 유효수량', '간선 전압강하율')를 분석하여
+    관련 국가건설기준(KDS/KCS) 및 법령 조항을 연관도 순으로 역추적 검색하고 수치 검산 공식 힌트를 제공합니다.
+
+    Args:
+        query: 자연어 검색 질의어 (예: '버팀보 안전율 기준', '소화수조 용량 계산', '저압 간선 전압강하')
+        domain: 공종 분야 필터 (선택 사항, 예: '토목/구조', '기계/소방', '전기/통신', '건축')
+        top_k: 반환할 상위 결과 개수 (기본값: 3)
+    """
+    try:
+        res = _search_standards(query=query, domain=domain if domain else None, top_k=top_k)
         return json.dumps(res, ensure_ascii=False, indent=2)
     except Exception as e:
         return json.dumps({"status": "ERROR", "error": str(e)}, ensure_ascii=False)

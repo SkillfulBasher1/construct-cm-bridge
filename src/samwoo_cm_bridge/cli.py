@@ -15,6 +15,9 @@ from .core.doc_parser import read_local_project_file, list_secure_local_files, S
 from .core.formula_engine import verify_calculation_safety
 from .core.docx_exporter import export_review_document
 from .core.batch_cross_checker import batch_cross_check_documents, BatchCrossChecker
+from .core.diff_audit_engine import audit_document_diff, DiffAuditEngine
+from .core.adaptive_checklist_engine import generate_and_evaluate_checklist, AdaptiveChecklistEngine
+from .core.semantic_standard_searcher import search_standards_by_keyword, SemanticStandardSearcher
 
 
 def cmd_serve(args):
@@ -236,6 +239,82 @@ def cmd_check_bundle(args):
         print()
 
 
+def cmd_audit_diff(args):
+    """Run document revision diff & pay application tampering audit."""
+    res = audit_document_diff(args.base_file, args.target_file, args.category)
+    print("\n" + "=" * 70)
+    print(f"[도서/내역서 Diff & 변조 감사 결과] 최종 판정: {res.get('overall_verdict')}")
+    print("=" * 70)
+    print(f"- 기준 파일: {res.get('base_file')}  <--->  검토 대상: {res.get('target_file')}")
+    print(f"- 감사 유형: {res.get('audit_type')}\n")
+
+    if res.get("audit_type") == "PAY_APPLICATION_XLSX":
+        fin = res.get("financial_summary", {})
+        print("=== [공사비/기성 청구 금액 분석] ===")
+        print(f"- 전회 승인액: {fin.get('base_claim_total', 0):,.0f}원")
+        print(f"- 당회 청구액: {fin.get('target_claim_total', 0):,.0f}원 (증감: {fin.get('claimed_increase_vs_base', 0):+,.0f}원)")
+        print(f"- 수학적 재검증액: {fin.get('recalculated_true_total', 0):,.0f}원")
+        if fin.get("unauthorized_overbilling_amount", 0) > 0:
+            print(f"- ⚠️ 불일치/과대청구 금액: +{fin.get('unauthorized_overbilling_amount', 0):,.0f}원 (삭감 대상)")
+        print()
+
+        print(f"=== [발견된 변조 및 불일치 항목: {res.get('total_findings_count', 0)}건 (CRITICAL: {res.get('critical_count', 0)}건)] ===")
+        for idx, f in enumerate(res.get("findings", []), 1):
+            print(f"{idx}. [{f['category']}] (심각도: {f['severity']}) - {f['item']}")
+            print(f"   - 내용: {f['description']}")
+            print(f"   - 조치: {f['action']}")
+        print()
+    else:
+        print(f"=== [도서 개정 변경점: 총 {res.get('total_changes', 0)}건 (CRITICAL: {res.get('critical_changes', 0)}건)] ===")
+        for idx, c in enumerate(res.get("changes", []), 1):
+            print(f"{idx}. [{c['change_type']}] (심각도: {c['severity']}) - {c['description']}")
+            if c.get("base_excerpt"):
+                print(f"   - [기존 Rev0]: {c['base_excerpt']}")
+            if c.get("target_excerpt"):
+                print(f"   - [변경 Rev1]: {c['target_excerpt']}")
+        print()
+
+
+def cmd_checklist(args):
+    """Generate dynamic checklist and evaluate contractor plan."""
+    res = generate_and_evaluate_checklist(
+        work_type=args.work_type,
+        site_conditions=args.conditions,
+        spec_file=args.spec,
+        plan_file=args.plan,
+    )
+    print("\n" + "=" * 70)
+    print(f"[현장 맞춤형 CM 체크리스트 & 시공계획서 판정] 최종 결과: {res.get('overall_verdict')}")
+    print("=" * 70)
+    print(f"- 대상 공종: {res.get('work_type')} | 현장 특성: {res.get('site_conditions')}")
+    print(f"- 시공계획서 적합도 점수: {res.get('compliance_score_pct')}% (적합: {res.get('pass_count')}건 / 보완: {res.get('modify_count')}건 / 총: {res.get('total_items')}문항)\n")
+
+    print("=== [세부 항목별 판정 및 매핑 근거] ===")
+    for item in res.get("checklist_results", []):
+        status_symbol = "✔" if "PASS" in item["status"] else "✖"
+        print(f"{item['no']:02d}. [{item['id']}] {item['item']}")
+        print(f"    - 판정: {status_symbol} {item['status']}")
+        print(f"    - 근거 문구: {item['evidence']}")
+        if "MODIFY" in item["status"]:
+            print(f"    - 조치 지시: {item['action_required']}")
+    print()
+
+
+def cmd_search_std(args):
+    """Semantic backtracking search for KDS/KCS/Laws."""
+    res = search_standards_by_keyword(query=args.query, domain=args.domain, top_k=args.top)
+    print("\n" + "=" * 70)
+    print(f"[건설기준 & 법령 시맨틱 역추적 검색] 질의어: '{res.get('query')}' (결과: {res.get('total_matches')}건)")
+    print("=" * 70)
+
+    for idx, r in enumerate(res.get("top_results", []), 1):
+        print(f"\n{idx}. [{r['code']}] {r['title']} (유사도: {r['score']}점 | 분류: {r['category']} - {r['discipline']})")
+        print(f"   - 핵심 기준 본문: {r['excerpt']}")
+        if r.get("formula_hint"):
+            print(f"   - 💡 파이프라인 연계 공식: {r['formula_hint']}")
+    print()
+
+
 def main():
     parser = argparse.ArgumentParser(description="Samwoo-CM-Bridge CLI Tool")
     subparsers = parser.add_subparsers(dest="command", help="Available subcommands")
@@ -253,6 +332,25 @@ def main():
     # check-bundle
     p_bundle = subparsers.add_parser("check-bundle", help="Batch cross-check multiple documents")
     p_bundle.add_argument("files", nargs="+", help="Filenames to cross-check")
+
+    # audit-diff
+    p_diff = subparsers.add_parser("audit-diff", help="Audit doc diff & pay application tampering")
+    p_diff.add_argument("base_file", help="Baseline document / Rev0")
+    p_diff.add_argument("target_file", help="Target document / Rev1")
+    p_diff.add_argument("--category", "-c", default="AUTO", help="File category (AUTO, EXCEL, TEXT)")
+
+    # checklist
+    p_chk = subparsers.add_parser("checklist", help="Dynamic checklist & plan evaluator")
+    p_chk.add_argument("work_type", help="Work type (e.g. '토공/가설', '골조/콘크리트', '기계/소방', '전기/통신')")
+    p_chk.add_argument("--conditions", "-c", default="", help="Site conditions (e.g. '도심지, 지하수위, 동절기')")
+    p_chk.add_argument("--spec", "-s", default="", help="Specification file")
+    p_chk.add_argument("--plan", "-p", default="", help="Construction plan file")
+
+    # search-std
+    p_search = subparsers.add_parser("search-std", help="Semantic search for standards & laws")
+    p_search.add_argument("query", help="Natural language query")
+    p_search.add_argument("--domain", "-d", default="", help="Domain filter")
+    p_search.add_argument("--top", "-t", type=int, default=3, help="Top K results")
 
     # law
     p_law = subparsers.add_parser("law", help="Query national law article")
@@ -276,6 +374,12 @@ def main():
         cmd_parse(args)
     elif args.command == "check-bundle":
         cmd_check_bundle(args)
+    elif args.command == "audit-diff":
+        cmd_audit_diff(args)
+    elif args.command == "checklist":
+        cmd_checklist(args)
+    elif args.command == "search-std":
+        cmd_search_std(args)
     elif args.command == "law":
         cmd_law(args)
     elif args.command == "kcsc":
