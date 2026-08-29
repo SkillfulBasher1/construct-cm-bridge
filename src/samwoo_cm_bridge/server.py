@@ -21,6 +21,7 @@ from .core.project_memory_engine import index_project_instruction as _index_inst
 from .core.design_change_tracker import track_design_changes as _track_changes
 from .core.cm_periodic_reporter import generate_weekly_cm_report as _gen_weekly_report
 from .core.official_letter_generator import draft_official_notice as _draft_notice
+from .core.comprehensive_review_pipeline import run_comprehensive_review as _auto_review
 
 logger = logging.getLogger("samwoo_cm_bridge")
 
@@ -336,6 +337,41 @@ def draft_official_notice(
             review_result_file=review_result_file if review_result_file else None,
             project_name=project_name,
             chief_cm_name=chief_cm_name,
+        )
+        return json.dumps(res, ensure_ascii=False, indent=2)
+    except Exception as e:
+        return json.dumps({"status": "ERROR", "error": str(e)}, ensure_ascii=False)
+
+
+@mcp.tool()
+def run_comprehensive_review(
+    target_plan_file: str,
+    spec_file: str = "",
+    calc_file: str = "",
+    output_report_name: str = "종합_CM기술검토의견서.docx",
+    project_name: str = "삼우씨엠 신축공사 CM현장",
+    reviewer_name: str = "김수석 책임건설사업관리기술인",
+) -> str:
+    """[원클릭 통합 자료 검토 파이프라인]
+    시공사 제출 시공계획서/계산서 파일명만 입력하면 [로컬 문서 파싱 ➔ 실시간 법령/KCSC 자동 호출 ➔
+    수치 검산 ➔ 3자 교차 대조표 ➔ 삼우씨엠 표준 Word 감리의견서(.docx) 생성]을 한 번에 원스톱으로 실행합니다.
+
+    Args:
+        target_plan_file: 검토 대상 시공계획서 (예: 'sample_과업지시서_특기시방.hwpx', 'sample_건축_단열및시공계획서.docx')
+        spec_file: 발주처 특기시방서 파일명 (선택 사항, 예: 'sample_과업지시서_특기시방.hwpx')
+        calc_file: 구조/수치 계산서 파일명 (선택 사항, 예: 'sample_가설흙막이_구조계산서.xlsx')
+        output_report_name: 저장할 감리의견서 파일명 (기본값: '종합_CM기술검토의견서.docx')
+        project_name: 프로젝트 현장명
+        reviewer_name: 책임건설사업관리기술인 성명
+    """
+    try:
+        res = _auto_review(
+            target_plan_file=target_plan_file,
+            spec_file=spec_file if spec_file else None,
+            calc_file=calc_file if calc_file else None,
+            output_report_name=output_report_name,
+            project_name=project_name,
+            reviewer_name=reviewer_name,
         )
         return json.dumps(res, ensure_ascii=False, indent=2)
     except Exception as e:

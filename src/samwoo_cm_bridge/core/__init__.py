@@ -17,6 +17,7 @@ from .project_memory_engine import (
 from .design_change_tracker import DesignChangeTracker, track_design_changes
 from .cm_periodic_reporter import PeriodicReporter, generate_weekly_cm_report
 from .official_letter_generator import OfficialLetterGenerator, draft_official_notice
+from .comprehensive_review_pipeline import ComprehensiveReviewPipeline, run_comprehensive_review
 
 __all__ = [
     "OpenApiClient",
@@ -48,4 +49,6 @@ __all__ = [
     "generate_weekly_cm_report",
     "OfficialLetterGenerator",
     "draft_official_notice",
+    "ComprehensiveReviewPipeline",
+    "run_comprehensive_review",
 ]

@@ -22,6 +22,7 @@ from .core.project_memory_engine import index_project_instruction, search_projec
 from .core.design_change_tracker import track_design_changes
 from .core.cm_periodic_reporter import generate_weekly_cm_report
 from .core.official_letter_generator import draft_official_notice
+from .core.comprehensive_review_pipeline import run_comprehensive_review
 
 
 def cmd_serve(args):
@@ -405,6 +406,34 @@ def cmd_draft_notice(args):
     print(f"- Markdown 공문서: {res.get('md_path')}\n")
 
 
+def cmd_review_auto(args):
+    """Run full automated 3-way comprehensive review pipeline."""
+    res = run_comprehensive_review(
+        target_plan_file=args.target_plan_file,
+        spec_file=args.spec,
+        calc_file=args.calc,
+        output_report_name=args.output,
+        project_name=args.project,
+    )
+    print("\n" + "=" * 70)
+    print(f"[원클릭 종합 CM 기술검토 파이프라인 완료] 최종 판정: {res.get('overall_verdict')}")
+    print("=" * 70)
+    print(f"- 대상 시공계획서: {res.get('target_document')}")
+    print(f"- 검토 요약: {res.get('summary_opinion')}")
+    print(f"- Word 감리의견서: {res.get('generated_docx_file')}")
+    print(f"- Markdown 감리의견서: {res.get('generated_md_file')}\n")
+
+    print("=== [3자 교차 검토 종합 대조표] ===")
+    for idx, r in enumerate(res.get("cross_comparison_table", []), 1):
+        sym = "✔" if "PASS" in r["verdict"] or "적합" in r["verdict"] else "✖"
+        print(f"{idx}. {r['item']} ➔ {sym} {r['verdict']}")
+        print(f"   - 법령/KCSC 기준: {r['standard_basis']}")
+        print(f"   - 시방 요구조건: {r['client_requirement']}")
+        print(f"   - 시공사 제출값: {r['contractor_submission']}")
+        print(f"   - 조치 사항: {r['notes']}")
+    print()
+
+
 def main():
     parser = argparse.ArgumentParser(description="Samwoo-CM-Bridge CLI Tool")
     subparsers = parser.add_subparsers(dest="command", help="Available subcommands")
@@ -470,6 +499,14 @@ def main():
     p_not.add_argument("--file", "-f", default="", help="Attached review result file")
     p_not.add_argument("--project", default="삼우씨엠 신축공사 CM현장", help="Project name")
 
+    # review-auto
+    p_rev = subparsers.add_parser("review-auto", help="End-to-end one-click comprehensive review pipeline")
+    p_rev.add_argument("target_plan_file", help="Contractor construction plan file")
+    p_rev.add_argument("--spec", "-s", default="", help="Specification file")
+    p_rev.add_argument("--calc", "-c", default="", help="Calculation spreadsheet file")
+    p_rev.add_argument("--output", "-o", default="종합_CM기술검토의견서.docx", help="Output Word report filename")
+    p_rev.add_argument("--project", default="삼우씨엠 신축공사 CM현장", help="Project name")
+
     # law
     p_law = subparsers.add_parser("law", help="Query national law article")
     p_law.add_argument("law_name", help="Name of law")
@@ -508,6 +545,8 @@ def main():
         cmd_report_weekly(args)
     elif args.command == "draft-notice":
         cmd_draft_notice(args)
+    elif args.command == "review-auto":
+        cmd_review_auto(args)
     elif args.command == "law":
         cmd_law(args)
     elif args.command == "kcsc":
