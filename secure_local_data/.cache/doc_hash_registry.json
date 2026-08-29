@@ -1,0 +1,978 @@
+{
+  "sample_과업지시서_특기시방.hwpx": {
+    "filename": "sample_과업지시서_특기시방.hwpx",
+    "sha256": "6e9daaf60ed59fb1def1223f0e482c2bd09d54edb4476250b7854d4d276c3ab1",
+    "size_bytes": 2147,
+    "mtime": 1787977907.656289,
+    "cached_at": "2026-08-30T07:27:37.961050",
+    "summary_file": "C:\\Users\\tbvja\\Projects\\samwoo-cm-bridge\\secure_local_data\\summaries\\2026-08-30_sample_과업지시서_특기시방.hwpx.md",
+    "parsed_data": {
+      "status": "SUCCESS",
+      "filename": "sample_과업지시서_특기시방.hwpx",
+      "format": "HWPX",
+      "markdown": "# [HWPX Document] sample_과업지시서_특기시방.hwpx\n\n## 1. 본문 단락 내용\n제 1 장 총 칙 (삼우씨엠 신축공사 특기시방서)\n\n1.1 적용 범위: 본 시방서는 지하 3층, 지상 15층 복합건축물의 토목 가설공사, 기계소방, 전기설비 공사에 적용한다.\n\n1.2 품질 및 안전관리: 시공사는 건설기술 진흥법 제62조에 따른 안전관리계획서를 제출하여 감리원의 승인을 득하여야 한다.\n\n공종\n\n발주처 요구 기준\n\n요구 안전율 / 허용치\n\n가설 흙막이(버팀보)\n\nKDS 21 30 00 준수 및 강재 KS인증품\n\nFs >= 1.25 (SS275 강재)\n\n소방 설비(소화수조)\n\n법적 유효수량 대비 15% 이상 추가 확보\n\n유효저수량 15.0 m3 이상\n\n전기 설비(간선배선)\n\nKEC 232 규격 준수 저압선로\n\n전압강하율 2.5% 이하\n\n## 2. 문서 내 표 (Tables)\n| 공종 | 발주처 요구 기준 | 요구 안전율 / 허용치 |\n| --- | --- | --- |\n| 가설 흙막이(버팀보) | KDS 21 30 00 준수 및 강재 KS인증품 | Fs >= 1.25 (SS275 강재) |\n| 소방 설비(소화수조) | 법적 유효수량 대비 15% 이상 추가 확보 | 유효저수량 15.0 m3 이상 |\n| 전기 설비(간선배선) | KEC 232 규격 준수 저압선로 | 전압강하율 2.5% 이하 |",
+      "chunks": [
+        {
+          "chunk_id": "P-001",
+          "source_type": "PARAGRAPH",
+          "line_no": 1,
+          "char_start": 0,
+          "char_end": 27,
+          "section_title": "본문 단락",
+          "table_coord": null,
+          "text": "제 1 장 총 칙 (삼우씨엠 신축공사 특기시방서)",
+          "source_anchor": "sample_과업지시서_특기시방.hwpx L1 (char 0-27)"
+        },
+        {
+          "chunk_id": "P-002",
+          "source_type": "PARAGRAPH",
+          "line_no": 2,
+          "char_start": 29,
+          "char_end": 97,
+          "section_title": "본문 단락",
+          "table_coord": null,
+          "text": "1.1 적용 범위: 본 시방서는 지하 3층, 지상 15층 복합건축물의 토목 가설공사, 기계소방, 전기설비 공사에 적용한다.",
+          "source_anchor": "sample_과업지시서_특기시방.hwpx L2 (char 29-97)"
+        },
+        {
+          "chunk_id": "P-003",
+          "source_type": "PARAGRAPH",
+          "line_no": 3,
+          "char_start": 99,
+          "char_end": 168,
+          "section_title": "본문 단락",
+          "table_coord": null,
+          "text": "1.2 품질 및 안전관리: 시공사는 건설기술 진흥법 제62조에 따른 안전관리계획서를 제출하여 감리원의 승인을 득하여야 한다.",
+          "source_anchor": "sample_과업지시서_특기시방.hwpx L3 (char 99-168)"
+        },
+        {
+          "chunk_id": "P-004",
+          "source_type": "PARAGRAPH",
+          "line_no": 4,
+          "char_start": 170,
+          "char_end": 172,
+          "section_title": "본문 단락",
+          "table_coord": null,
+          "text": "공종",
+          "source_anchor": "sample_과업지시서_특기시방.hwpx L4 (char 170-172)"
+        },
+        {
+          "chunk_id": "P-005",
+          "source_type": "PARAGRAPH",
+          "line_no": 5,
+          "char_start": 174,
+          "char_end": 183,
+          "section_title": "본문 단락",
+          "table_coord": null,
+          "text": "발주처 요구 기준",
+          "source_anchor": "sample_과업지시서_특기시방.hwpx L5 (char 174-183)"
+        },
+        {
+          "chunk_id": "P-006",
+          "source_type": "PARAGRAPH",
+          "line_no": 6,
+          "char_start": 185,
+          "char_end": 197,
+          "section_title": "본문 단락",
+          "table_coord": null,
+          "text": "요구 안전율 / 허용치",
+          "source_anchor": "sample_과업지시서_특기시방.hwpx L6 (char 185-197)"
+        },
+        {
+          "chunk_id": "P-007",
+          "source_type": "PARAGRAPH",
+          "line_no": 7,
+          "char_start": 199,
+          "char_end": 210,
+          "section_title": "본문 단락",
+          "table_coord": null,
+          "text": "가설 흙막이(버팀보)",
+          "source_anchor": "sample_과업지시서_특기시방.hwpx L7 (char 199-210)"
+        },
+        {
+          "chunk_id": "P-008",
+          "source_type": "PARAGRAPH",
+          "line_no": 8,
+          "char_start": 212,
+          "char_end": 238,
+          "section_title": "본문 단락",
+          "table_coord": null,
+          "text": "KDS 21 30 00 준수 및 강재 KS인증품",
+          "source_anchor": "sample_과업지시서_특기시방.hwpx L8 (char 212-238)"
+        },
+        {
+          "chunk_id": "P-009",
+          "source_type": "PARAGRAPH",
+          "line_no": 9,
+          "char_start": 240,
+          "char_end": 261,
+          "section_title": "본문 단락",
+          "table_coord": null,
+          "text": "Fs >= 1.25 (SS275 강재)",
+          "source_anchor": "sample_과업지시서_특기시방.hwpx L9 (char 240-261)"
+        },
+        {
+          "chunk_id": "P-010",
+          "source_type": "PARAGRAPH",
+          "line_no": 10,
+          "char_start": 263,
+          "char_end": 274,
+          "section_title": "본문 단락",
+          "table_coord": null,
+          "text": "소방 설비(소화수조)",
+          "source_anchor": "sample_과업지시서_특기시방.hwpx L10 (char 263-274)"
+        },
+        {
+          "chunk_id": "P-011",
+          "source_type": "PARAGRAPH",
+          "line_no": 11,
+          "char_start": 276,
+          "char_end": 299,
+          "section_title": "본문 단락",
+          "table_coord": null,
+          "text": "법적 유효수량 대비 15% 이상 추가 확보",
+          "source_anchor": "sample_과업지시서_특기시방.hwpx L11 (char 276-299)"
+        },
+        {
+          "chunk_id": "P-012",
+          "source_type": "PARAGRAPH",
+          "line_no": 12,
+          "char_start": 301,
+          "char_end": 317,
+          "section_title": "본문 단락",
+          "table_coord": null,
+          "text": "유효저수량 15.0 m3 이상",
+          "source_anchor": "sample_과업지시서_특기시방.hwpx L12 (char 301-317)"
+        },
+        {
+          "chunk_id": "P-013",
+          "source_type": "PARAGRAPH",
+          "line_no": 13,
+          "char_start": 319,
+          "char_end": 330,
+          "section_title": "본문 단락",
+          "table_coord": null,
+          "text": "전기 설비(간선배선)",
+          "source_anchor": "sample_과업지시서_특기시방.hwpx L13 (char 319-330)"
+        },
+        {
+          "chunk_id": "P-014",
+          "source_type": "PARAGRAPH",
+          "line_no": 14,
+          "char_start": 332,
+          "char_end": 350,
+          "section_title": "본문 단락",
+          "table_coord": null,
+          "text": "KEC 232 규격 준수 저압선로",
+          "source_anchor": "sample_과업지시서_특기시방.hwpx L14 (char 332-350)"
+        },
+        {
+          "chunk_id": "P-015",
+          "source_type": "PARAGRAPH",
+          "line_no": 15,
+          "char_start": 352,
+          "char_end": 365,
+          "section_title": "본문 단락",
+          "table_coord": null,
+          "text": "전압강하율 2.5% 이하",
+          "source_anchor": "sample_과업지시서_특기시방.hwpx L15 (char 352-365)"
+        },
+        {
+          "chunk_id": "TBL-1-R0C0",
+          "source_type": "TABLE_CELL",
+          "line_no": 16,
+          "char_start": 367,
+          "char_end": 369,
+          "section_title": "표 1",
+          "table_coord": {
+            "table": 1,
+            "row": 0,
+            "col": 0
+          },
+          "text": "공종",
+          "source_anchor": "sample_과업지시서_특기시방.hwpx Table 1 [R0, C0]"
+        },
+        {
+          "chunk_id": "TBL-1-R0C1",
+          "source_type": "TABLE_CELL",
+          "line_no": 16,
+          "char_start": 370,
+          "char_end": 379,
+          "section_title": "표 1",
+          "table_coord": {
+            "table": 1,
+            "row": 0,
+            "col": 1
+          },
+          "text": "발주처 요구 기준",
+          "source_anchor": "sample_과업지시서_특기시방.hwpx Table 1 [R0, C1]"
+        },
+        {
+          "chunk_id": "TBL-1-R0C2",
+          "source_type": "TABLE_CELL",
+          "line_no": 16,
+          "char_start": 380,
+          "char_end": 392,
+          "section_title": "표 1",
+          "table_coord": {
+            "table": 1,
+            "row": 0,
+            "col": 2
+          },
+          "text": "요구 안전율 / 허용치",
+          "source_anchor": "sample_과업지시서_특기시방.hwpx Table 1 [R0, C2]"
+        },
+        {
+          "chunk_id": "TBL-1-R1C0",
+          "source_type": "TABLE_CELL",
+          "line_no": 17,
+          "char_start": 393,
+          "char_end": 404,
+          "section_title": "표 1",
+          "table_coord": {
+            "table": 1,
+            "row": 1,
+            "col": 0
+          },
+          "text": "가설 흙막이(버팀보)",
+          "source_anchor": "sample_과업지시서_특기시방.hwpx Table 1 [R1, C0]"
+        },
+        {
+          "chunk_id": "TBL-1-R1C1",
+          "source_type": "TABLE_CELL",
+          "line_no": 17,
+          "char_start": 405,
+          "char_end": 431,
+          "section_title": "표 1",
+          "table_coord": {
+            "table": 1,
+            "row": 1,
+            "col": 1
+          },
+          "text": "KDS 21 30 00 준수 및 강재 KS인증품",
+          "source_anchor": "sample_과업지시서_특기시방.hwpx Table 1 [R1, C1]"
+        },
+        {
+          "chunk_id": "TBL-1-R1C2",
+          "source_type": "TABLE_CELL",
+          "line_no": 17,
+          "char_start": 432,
+          "char_end": 453,
+          "section_title": "표 1",
+          "table_coord": {
+            "table": 1,
+            "row": 1,
+            "col": 2
+          },
+          "text": "Fs >= 1.25 (SS275 강재)",
+          "source_anchor": "sample_과업지시서_특기시방.hwpx Table 1 [R1, C2]"
+        },
+        {
+          "chunk_id": "TBL-1-R2C0",
+          "source_type": "TABLE_CELL",
+          "line_no": 18,
+          "char_start": 454,
+          "char_end": 465,
+          "section_title": "표 1",
+          "table_coord": {
+            "table": 1,
+            "row": 2,
+            "col": 0
+          },
+          "text": "소방 설비(소화수조)",
+          "source_anchor": "sample_과업지시서_특기시방.hwpx Table 1 [R2, C0]"
+        },
+        {
+          "chunk_id": "TBL-1-R2C1",
+          "source_type": "TABLE_CELL",
+          "line_no": 18,
+          "char_start": 466,
+          "char_end": 489,
+          "section_title": "표 1",
+          "table_coord": {
+            "table": 1,
+            "row": 2,
+            "col": 1
+          },
+          "text": "법적 유효수량 대비 15% 이상 추가 확보",
+          "source_anchor": "sample_과업지시서_특기시방.hwpx Table 1 [R2, C1]"
+        },
+        {
+          "chunk_id": "TBL-1-R2C2",
+          "source_type": "TABLE_CELL",
+          "line_no": 18,
+          "char_start": 490,
+          "char_end": 506,
+          "section_title": "표 1",
+          "table_coord": {
+            "table": 1,
+            "row": 2,
+            "col": 2
+          },
+          "text": "유효저수량 15.0 m3 이상",
+          "source_anchor": "sample_과업지시서_특기시방.hwpx Table 1 [R2, C2]"
+        },
+        {
+          "chunk_id": "TBL-1-R3C0",
+          "source_type": "TABLE_CELL",
+          "line_no": 19,
+          "char_start": 507,
+          "char_end": 518,
+          "section_title": "표 1",
+          "table_coord": {
+            "table": 1,
+            "row": 3,
+            "col": 0
+          },
+          "text": "전기 설비(간선배선)",
+          "source_anchor": "sample_과업지시서_특기시방.hwpx Table 1 [R3, C0]"
+        },
+        {
+          "chunk_id": "TBL-1-R3C1",
+          "source_type": "TABLE_CELL",
+          "line_no": 19,
+          "char_start": 519,
+          "char_end": 537,
+          "section_title": "표 1",
+          "table_coord": {
+            "table": 1,
+            "row": 3,
+            "col": 1
+          },
+          "text": "KEC 232 규격 준수 저압선로",
+          "source_anchor": "sample_과업지시서_특기시방.hwpx Table 1 [R3, C1]"
+        },
+        {
+          "chunk_id": "TBL-1-R3C2",
+          "source_type": "TABLE_CELL",
+          "line_no": 19,
+          "char_start": 538,
+          "char_end": 551,
+          "section_title": "표 1",
+          "table_coord": {
+            "table": 1,
+            "row": 3,
+            "col": 2
+          },
+          "text": "전압강하율 2.5% 이하",
+          "source_anchor": "sample_과업지시서_특기시방.hwpx Table 1 [R3, C2]"
+        }
+      ],
+      "metadata": {
+        "paragraph_count": 15,
+        "table_count": 1,
+        "tables": [
+          [
+            [
+              "공종",
+              "발주처 요구 기준",
+              "요구 안전율 / 허용치"
+            ],
+            [
+              "가설 흙막이(버팀보)",
+              "KDS 21 30 00 준수 및 강재 KS인증품",
+              "Fs >= 1.25 (SS275 강재)"
+            ],
+            [
+              "소방 설비(소화수조)",
+              "법적 유효수량 대비 15% 이상 추가 확보",
+              "유효저수량 15.0 m3 이상"
+            ],
+            [
+              "전기 설비(간선배선)",
+              "KEC 232 규격 준수 저압선로",
+              "전압강하율 2.5% 이하"
+            ]
+          ]
+        ],
+        "chunk_count": 27
+      },
+      "from_cache": false
+    }
+  },
+  "test_cache_dummy.txt": {
+    "filename": "test_cache_dummy.txt",
+    "sha256": "0ddeba81b502f7d60270ee4699326fa2568146de1c98fbc36d4c40bbcc029cc8",
+    "size_bytes": 44,
+    "mtime": 1788042457.9903338,
+    "cached_at": "2026-08-30T07:27:37.995127",
+    "summary_file": "C:\\Users\\tbvja\\Projects\\samwoo-cm-bridge\\secure_local_data\\summaries\\2026-08-30_test_cache_dummy.txt.md",
+    "parsed_data": {
+      "status": "SUCCESS",
+      "filename": "test_cache_dummy.txt",
+      "format": "TXT",
+      "markdown": "Modified version 2.0 with different content!",
+      "metadata": {
+        "length_chars": 44
+      },
+      "from_cache": false
+    }
+  },
+  "sample_가설흙막이_구조계산서.xlsx": {
+    "filename": "sample_가설흙막이_구조계산서.xlsx",
+    "sha256": "22f4b087d93c8993dfc757bde8e24307ce45f28208975fc310364493f5191a53",
+    "size_bytes": 5878,
+    "mtime": 1787977907.6718163,
+    "cached_at": "2026-08-30T07:27:38.172401",
+    "summary_file": "C:\\Users\\tbvja\\Projects\\samwoo-cm-bridge\\secure_local_data\\summaries\\2026-08-30_sample_가설흙막이_구조계산서.xlsx.md",
+    "parsed_data": {
+      "status": "SUCCESS",
+      "filename": "sample_가설흙막이_구조계산서.xlsx",
+      "format": "XLSX",
+      "markdown": "# [Excel Calculation Sheet] sample_가설흙막이_구조계산서.xlsx\n\n## 시트: 버팀보_단면검토\n| 부재명 | 규격 | 작용축력(kN) | 단면적(cm2) | 작용응력(MPa) | 허용응력(MPa) | 계산안전율 | 요구안전율 | 판정 |\n| --- | --- | --- | --- | --- | --- | --- | --- | --- |\n| 1단 버팀보 | H-300x300x10x15 | 2444 | 119 | 205.4 | 220 | 1.07 | 1.25 | FAIL |\n| 2단 버팀보 | H-350x350x12x19 | 2850 | 173.9 | 163.8 | 220 | 1.34 | 1.25 | PASS |\n\n\n## 시트: 지반앵커_검토\n| 앵커번호 | 설계앵커력(kN) | 극한인장력(kN) | 계산안전율 | 요구안전율 | 판정 |\n| --- | --- | --- | --- | --- | --- |\n| A-01 | 350 | 560 | 1.6 | 1.5 | PASS |\n| A-02 | 380 | 610 | 1.61 | 1.5 | PASS |\n\n",
+      "chunks": [
+        {
+          "chunk_id": "버팀보_단면검토-R1",
+          "source_type": "SHEET_ROW",
+          "line_no": 1,
+          "section_title": "시트: 버팀보_단면검토",
+          "table_coord": {
+            "sheet": "버팀보_단면검토",
+            "row": 1
+          },
+          "text": "부재명 | 규격 | 작용축력(kN) | 단면적(cm2) | 작용응력(MPa) | 허용응력(MPa) | 계산안전율 | 요구안전율 | 판정",
+          "source_anchor": "sample_가설흙막이_구조계산서.xlsx [버팀보_단면검토!R1]"
+        },
+        {
+          "chunk_id": "버팀보_단면검토-R2",
+          "source_type": "SHEET_ROW",
+          "line_no": 2,
+          "section_title": "시트: 버팀보_단면검토",
+          "table_coord": {
+            "sheet": "버팀보_단면검토",
+            "row": 2
+          },
+          "text": "1단 버팀보 | H-300x300x10x15 | 2444 | 119 | 205.4 | 220 | 1.07 | 1.25 | FAIL",
+          "source_anchor": "sample_가설흙막이_구조계산서.xlsx [버팀보_단면검토!R2]"
+        },
+        {
+          "chunk_id": "버팀보_단면검토-R3",
+          "source_type": "SHEET_ROW",
+          "line_no": 3,
+          "section_title": "시트: 버팀보_단면검토",
+          "table_coord": {
+            "sheet": "버팀보_단면검토",
+            "row": 3
+          },
+          "text": "2단 버팀보 | H-350x350x12x19 | 2850 | 173.9 | 163.8 | 220 | 1.34 | 1.25 | PASS",
+          "source_anchor": "sample_가설흙막이_구조계산서.xlsx [버팀보_단면검토!R3]"
+        },
+        {
+          "chunk_id": "지반앵커_검토-R1",
+          "source_type": "SHEET_ROW",
+          "line_no": 1,
+          "section_title": "시트: 지반앵커_검토",
+          "table_coord": {
+            "sheet": "지반앵커_검토",
+            "row": 1
+          },
+          "text": "앵커번호 | 설계앵커력(kN) | 극한인장력(kN) | 계산안전율 | 요구안전율 | 판정",
+          "source_anchor": "sample_가설흙막이_구조계산서.xlsx [지반앵커_검토!R1]"
+        },
+        {
+          "chunk_id": "지반앵커_검토-R2",
+          "source_type": "SHEET_ROW",
+          "line_no": 2,
+          "section_title": "시트: 지반앵커_검토",
+          "table_coord": {
+            "sheet": "지반앵커_검토",
+            "row": 2
+          },
+          "text": "A-01 | 350 | 560 | 1.6 | 1.5 | PASS",
+          "source_anchor": "sample_가설흙막이_구조계산서.xlsx [지반앵커_검토!R2]"
+        },
+        {
+          "chunk_id": "지반앵커_검토-R3",
+          "source_type": "SHEET_ROW",
+          "line_no": 3,
+          "section_title": "시트: 지반앵커_검토",
+          "table_coord": {
+            "sheet": "지반앵커_검토",
+            "row": 3
+          },
+          "text": "A-02 | 380 | 610 | 1.61 | 1.5 | PASS",
+          "source_anchor": "sample_가설흙막이_구조계산서.xlsx [지반앵커_검토!R3]"
+        }
+      ],
+      "metadata": {
+        "sheets": [
+          "버팀보_단면검토",
+          "지반앵커_검토"
+        ],
+        "data": {
+          "버팀보_단면검토": [
+            [
+              "부재명",
+              "규격",
+              "작용축력(kN)",
+              "단면적(cm2)",
+              "작용응력(MPa)",
+              "허용응력(MPa)",
+              "계산안전율",
+              "요구안전율",
+              "판정"
+            ],
+            [
+              "1단 버팀보",
+              "H-300x300x10x15",
+              "2444",
+              "119",
+              "205.4",
+              "220",
+              "1.07",
+              "1.25",
+              "FAIL"
+            ],
+            [
+              "2단 버팀보",
+              "H-350x350x12x19",
+              "2850",
+              "173.9",
+              "163.8",
+              "220",
+              "1.34",
+              "1.25",
+              "PASS"
+            ]
+          ],
+          "지반앵커_검토": [
+            [
+              "앵커번호",
+              "설계앵커력(kN)",
+              "극한인장력(kN)",
+              "계산안전율",
+              "요구안전율",
+              "판정"
+            ],
+            [
+              "A-01",
+              "350",
+              "560",
+              "1.6",
+              "1.5",
+              "PASS"
+            ],
+            [
+              "A-02",
+              "380",
+              "610",
+              "1.61",
+              "1.5",
+              "PASS"
+            ]
+          ]
+        },
+        "chunk_count": 6
+      },
+      "from_cache": false
+    }
+  },
+  "sample_건축_단열및시공계획서.docx": {
+    "filename": "sample_건축_단열및시공계획서.docx",
+    "sha256": "dbce793c2b684daff5195525704047f057a66a82f03efbffae1a8339cbd05bfe",
+    "size_bytes": 36904,
+    "mtime": 1787977907.710935,
+    "cached_at": "2026-08-30T07:27:38.191020",
+    "summary_file": "C:\\Users\\tbvja\\Projects\\samwoo-cm-bridge\\secure_local_data\\summaries\\2026-08-30_sample_건축_단열및시공계획서.docx.md",
+    "parsed_data": {
+      "status": "SUCCESS",
+      "filename": "sample_건축_단열및시공계획서.docx",
+      "format": "DOCX",
+      "markdown": "# [Word Document] sample_건축_단열및시공계획서.docx\n\n\n## 본문 내용\n삼우씨엠 신축공사 건축 시공계획서 및 단열계획\n\n1. 외벽 단열재 사양: 준불연 압출법보온판 160mm (열전도율 0.028 W/m·K)\n\n2. 열관류율 계산값: 0.155 W/m²·K (중부2지역 기준 0.170 이하 충족)\n\n3. 피난계단 보행거리: 주계단 직통거리 38.5m (법적 50m 이내 만족)",
+      "chunks": [
+        {
+          "chunk_id": "P-001",
+          "source_type": "PARAGRAPH",
+          "line_no": 1,
+          "char_start": 0,
+          "char_end": 25,
+          "section_title": "본문 단락",
+          "table_coord": null,
+          "text": "삼우씨엠 신축공사 건축 시공계획서 및 단열계획",
+          "source_anchor": "sample_건축_단열및시공계획서.docx L1 (char 0-25)"
+        },
+        {
+          "chunk_id": "P-002",
+          "source_type": "PARAGRAPH",
+          "line_no": 2,
+          "char_start": 27,
+          "char_end": 76,
+          "section_title": "본문 단락",
+          "table_coord": null,
+          "text": "1. 외벽 단열재 사양: 준불연 압출법보온판 160mm (열전도율 0.028 W/m·K)",
+          "source_anchor": "sample_건축_단열및시공계획서.docx L2 (char 27-76)"
+        },
+        {
+          "chunk_id": "P-003",
+          "source_type": "PARAGRAPH",
+          "line_no": 3,
+          "char_start": 78,
+          "char_end": 126,
+          "section_title": "본문 단락",
+          "table_coord": null,
+          "text": "2. 열관류율 계산값: 0.155 W/m²·K (중부2지역 기준 0.170 이하 충족)",
+          "source_anchor": "sample_건축_단열및시공계획서.docx L3 (char 78-126)"
+        },
+        {
+          "chunk_id": "P-004",
+          "source_type": "PARAGRAPH",
+          "line_no": 4,
+          "char_start": 128,
+          "char_end": 171,
+          "section_title": "본문 단락",
+          "table_coord": null,
+          "text": "3. 피난계단 보행거리: 주계단 직통거리 38.5m (법적 50m 이내 만족)",
+          "source_anchor": "sample_건축_단열및시공계획서.docx L4 (char 128-171)"
+        }
+      ],
+      "metadata": {
+        "paragraph_count": 4,
+        "table_count": 0,
+        "tables": [],
+        "chunk_count": 4
+      },
+      "from_cache": false
+    }
+  },
+  "sample_발주처_설계변경지시공문.hwpx": {
+    "filename": "sample_발주처_설계변경지시공문.hwpx",
+    "sha256": "6b94aa6d01f6af6099deb49966c84f0f3813824cfa44abc194c37951e7e59416",
+    "size_bytes": 2273,
+    "mtime": 1787978719.4665048,
+    "cached_at": "2026-08-30T07:27:39.281426",
+    "summary_file": "C:\\Users\\tbvja\\Projects\\samwoo-cm-bridge\\secure_local_data\\summaries\\2026-08-30_sample_발주처_설계변경지시공문.hwpx.md",
+    "parsed_data": {
+      "status": "SUCCESS",
+      "filename": "sample_발주처_설계변경지시공문.hwpx",
+      "format": "HWPX",
+      "markdown": "# [HWPX Document] sample_발주처_설계변경지시공문.hwpx\n\n## 1. 본문 단락 내용\n[발주처 공문] 문서번호: SW-ORD-2026-0815 | 시행일자: 2026.08.15 | 발신: (주)삼우글로벌 개발사업본부\n\n수신: 삼우씨엠건축사사무소 건설사업관리단장 (참조: 시공사 현장소장)\n\n제목: 지하 2층 주차장 램프 구간 가설 지보공 보강 및 계측 빈도 상향 지시의 건\n\n1. 관련 근거: 인접 도로변 지표변위 계측치 증가에 따른 안전관리 강화 요청\n\n2. 지시 내용: 지하 2층 램프 구간 흙막이 버팀보를 H-300에서 H-350x350으로 규격 상향(설계변경 제1회 반영 예정)하고, 경사계 계측 주기를 기존 주 1회에서 주 2회로 즉시 상향할 것.\n\n3. 조치 기한: 2026년 08월 30일까지 보완된 시공계획서 및 구조계산서 제출 요망.\n\n구분\n\n기존 설계(당초)\n\n발주처 변경 지시 내용\n\n버팀보 규격\n\nH-300x300x10x15\n\nH-350x350x12x19 단면 증대\n\n계측 주기\n\n주 1회\n\n주 2회 이상으로 강화\n\n## 2. 문서 내 표 (Tables)\n| 구분 | 기존 설계(당초) | 발주처 변경 지시 내용 |\n| --- | --- | --- |\n| 버팀보 규격 | H-300x300x10x15 | H-350x350x12x19 단면 증대 |\n| 계측 주기 | 주 1회 | 주 2회 이상으로 강화 |",
+      "chunks": [
+        {
+          "chunk_id": "P-001",
+          "source_type": "PARAGRAPH",
+          "line_no": 1,
+          "char_start": 0,
+          "char_end": 72,
+          "section_title": "본문 단락",
+          "table_coord": null,
+          "text": "[발주처 공문] 문서번호: SW-ORD-2026-0815 | 시행일자: 2026.08.15 | 발신: (주)삼우글로벌 개발사업본부",
+          "source_anchor": "sample_발주처_설계변경지시공문.hwpx L1 (char 0-72)"
+        },
+        {
+          "chunk_id": "P-002",
+          "source_type": "PARAGRAPH",
+          "line_no": 2,
+          "char_start": 74,
+          "char_end": 112,
+          "section_title": "본문 단락",
+          "table_coord": null,
+          "text": "수신: 삼우씨엠건축사사무소 건설사업관리단장 (참조: 시공사 현장소장)",
+          "source_anchor": "sample_발주처_설계변경지시공문.hwpx L2 (char 74-112)"
+        },
+        {
+          "chunk_id": "P-003",
+          "source_type": "PARAGRAPH",
+          "line_no": 3,
+          "char_start": 114,
+          "char_end": 160,
+          "section_title": "본문 단락",
+          "table_coord": null,
+          "text": "제목: 지하 2층 주차장 램프 구간 가설 지보공 보강 및 계측 빈도 상향 지시의 건",
+          "source_anchor": "sample_발주처_설계변경지시공문.hwpx L3 (char 114-160)"
+        },
+        {
+          "chunk_id": "P-004",
+          "source_type": "PARAGRAPH",
+          "line_no": 4,
+          "char_start": 162,
+          "char_end": 205,
+          "section_title": "본문 단락",
+          "table_coord": null,
+          "text": "1. 관련 근거: 인접 도로변 지표변위 계측치 증가에 따른 안전관리 강화 요청",
+          "source_anchor": "sample_발주처_설계변경지시공문.hwpx L4 (char 162-205)"
+        },
+        {
+          "chunk_id": "P-005",
+          "source_type": "PARAGRAPH",
+          "line_no": 5,
+          "char_start": 207,
+          "char_end": 319,
+          "section_title": "본문 단락",
+          "table_coord": null,
+          "text": "2. 지시 내용: 지하 2층 램프 구간 흙막이 버팀보를 H-300에서 H-350x350으로 규격 상향(설계변경 제1회 반영 예정)하고, 경사계 계측 주기를 기존 주 1회에서 주 2회로 즉시 상향할 것.",
+          "source_anchor": "sample_발주처_설계변경지시공문.hwpx L5 (char 207-319)"
+        },
+        {
+          "chunk_id": "P-006",
+          "source_type": "PARAGRAPH",
+          "line_no": 6,
+          "char_start": 321,
+          "char_end": 371,
+          "section_title": "본문 단락",
+          "table_coord": null,
+          "text": "3. 조치 기한: 2026년 08월 30일까지 보완된 시공계획서 및 구조계산서 제출 요망.",
+          "source_anchor": "sample_발주처_설계변경지시공문.hwpx L6 (char 321-371)"
+        },
+        {
+          "chunk_id": "P-007",
+          "source_type": "PARAGRAPH",
+          "line_no": 7,
+          "char_start": 373,
+          "char_end": 375,
+          "section_title": "본문 단락",
+          "table_coord": null,
+          "text": "구분",
+          "source_anchor": "sample_발주처_설계변경지시공문.hwpx L7 (char 373-375)"
+        },
+        {
+          "chunk_id": "P-008",
+          "source_type": "PARAGRAPH",
+          "line_no": 8,
+          "char_start": 377,
+          "char_end": 386,
+          "section_title": "본문 단락",
+          "table_coord": null,
+          "text": "기존 설계(당초)",
+          "source_anchor": "sample_발주처_설계변경지시공문.hwpx L8 (char 377-386)"
+        },
+        {
+          "chunk_id": "P-009",
+          "source_type": "PARAGRAPH",
+          "line_no": 9,
+          "char_start": 388,
+          "char_end": 400,
+          "section_title": "본문 단락",
+          "table_coord": null,
+          "text": "발주처 변경 지시 내용",
+          "source_anchor": "sample_발주처_설계변경지시공문.hwpx L9 (char 388-400)"
+        },
+        {
+          "chunk_id": "P-010",
+          "source_type": "PARAGRAPH",
+          "line_no": 10,
+          "char_start": 402,
+          "char_end": 408,
+          "section_title": "본문 단락",
+          "table_coord": null,
+          "text": "버팀보 규격",
+          "source_anchor": "sample_발주처_설계변경지시공문.hwpx L10 (char 402-408)"
+        },
+        {
+          "chunk_id": "P-011",
+          "source_type": "PARAGRAPH",
+          "line_no": 11,
+          "char_start": 410,
+          "char_end": 425,
+          "section_title": "본문 단락",
+          "table_coord": null,
+          "text": "H-300x300x10x15",
+          "source_anchor": "sample_발주처_설계변경지시공문.hwpx L11 (char 410-425)"
+        },
+        {
+          "chunk_id": "P-012",
+          "source_type": "PARAGRAPH",
+          "line_no": 12,
+          "char_start": 427,
+          "char_end": 448,
+          "section_title": "본문 단락",
+          "table_coord": null,
+          "text": "H-350x350x12x19 단면 증대",
+          "source_anchor": "sample_발주처_설계변경지시공문.hwpx L12 (char 427-448)"
+        },
+        {
+          "chunk_id": "P-013",
+          "source_type": "PARAGRAPH",
+          "line_no": 13,
+          "char_start": 450,
+          "char_end": 455,
+          "section_title": "본문 단락",
+          "table_coord": null,
+          "text": "계측 주기",
+          "source_anchor": "sample_발주처_설계변경지시공문.hwpx L13 (char 450-455)"
+        },
+        {
+          "chunk_id": "P-014",
+          "source_type": "PARAGRAPH",
+          "line_no": 14,
+          "char_start": 457,
+          "char_end": 461,
+          "section_title": "본문 단락",
+          "table_coord": null,
+          "text": "주 1회",
+          "source_anchor": "sample_발주처_설계변경지시공문.hwpx L14 (char 457-461)"
+        },
+        {
+          "chunk_id": "P-015",
+          "source_type": "PARAGRAPH",
+          "line_no": 15,
+          "char_start": 463,
+          "char_end": 475,
+          "section_title": "본문 단락",
+          "table_coord": null,
+          "text": "주 2회 이상으로 강화",
+          "source_anchor": "sample_발주처_설계변경지시공문.hwpx L15 (char 463-475)"
+        },
+        {
+          "chunk_id": "TBL-1-R0C0",
+          "source_type": "TABLE_CELL",
+          "line_no": 16,
+          "char_start": 477,
+          "char_end": 479,
+          "section_title": "표 1",
+          "table_coord": {
+            "table": 1,
+            "row": 0,
+            "col": 0
+          },
+          "text": "구분",
+          "source_anchor": "sample_발주처_설계변경지시공문.hwpx Table 1 [R0, C0]"
+        },
+        {
+          "chunk_id": "TBL-1-R0C1",
+          "source_type": "TABLE_CELL",
+          "line_no": 16,
+          "char_start": 480,
+          "char_end": 489,
+          "section_title": "표 1",
+          "table_coord": {
+            "table": 1,
+            "row": 0,
+            "col": 1
+          },
+          "text": "기존 설계(당초)",
+          "source_anchor": "sample_발주처_설계변경지시공문.hwpx Table 1 [R0, C1]"
+        },
+        {
+          "chunk_id": "TBL-1-R0C2",
+          "source_type": "TABLE_CELL",
+          "line_no": 16,
+          "char_start": 490,
+          "char_end": 502,
+          "section_title": "표 1",
+          "table_coord": {
+            "table": 1,
+            "row": 0,
+            "col": 2
+          },
+          "text": "발주처 변경 지시 내용",
+          "source_anchor": "sample_발주처_설계변경지시공문.hwpx Table 1 [R0, C2]"
+        },
+        {
+          "chunk_id": "TBL-1-R1C0",
+          "source_type": "TABLE_CELL",
+          "line_no": 17,
+          "char_start": 503,
+          "char_end": 509,
+          "section_title": "표 1",
+          "table_coord": {
+            "table": 1,
+            "row": 1,
+            "col": 0
+          },
+          "text": "버팀보 규격",
+          "source_anchor": "sample_발주처_설계변경지시공문.hwpx Table 1 [R1, C0]"
+        },
+        {
+          "chunk_id": "TBL-1-R1C1",
+          "source_type": "TABLE_CELL",
+          "line_no": 17,
+          "char_start": 510,
+          "char_end": 525,
+          "section_title": "표 1",
+          "table_coord": {
+            "table": 1,
+            "row": 1,
+            "col": 1
+          },
+          "text": "H-300x300x10x15",
+          "source_anchor": "sample_발주처_설계변경지시공문.hwpx Table 1 [R1, C1]"
+        },
+        {
+          "chunk_id": "TBL-1-R1C2",
+          "source_type": "TABLE_CELL",
+          "line_no": 17,
+          "char_start": 526,
+          "char_end": 547,
+          "section_title": "표 1",
+          "table_coord": {
+            "table": 1,
+            "row": 1,
+            "col": 2
+          },
+          "text": "H-350x350x12x19 단면 증대",
+          "source_anchor": "sample_발주처_설계변경지시공문.hwpx Table 1 [R1, C2]"
+        },
+        {
+          "chunk_id": "TBL-1-R2C0",
+          "source_type": "TABLE_CELL",
+          "line_no": 18,
+          "char_start": 548,
+          "char_end": 553,
+          "section_title": "표 1",
+          "table_coord": {
+            "table": 1,
+            "row": 2,
+            "col": 0
+          },
+          "text": "계측 주기",
+          "source_anchor": "sample_발주처_설계변경지시공문.hwpx Table 1 [R2, C0]"
+        },
+        {
+          "chunk_id": "TBL-1-R2C1",
+          "source_type": "TABLE_CELL",
+          "line_no": 18,
+          "char_start": 554,
+          "char_end": 558,
+          "section_title": "표 1",
+          "table_coord": {
+            "table": 1,
+            "row": 2,
+            "col": 1
+          },
+          "text": "주 1회",
+          "source_anchor": "sample_발주처_설계변경지시공문.hwpx Table 1 [R2, C1]"
+        },
+        {
+          "chunk_id": "TBL-1-R2C2",
+          "source_type": "TABLE_CELL",
+          "line_no": 18,
+          "char_start": 559,
+          "char_end": 571,
+          "section_title": "표 1",
+          "table_coord": {
+            "table": 1,
+            "row": 2,
+            "col": 2
+          },
+          "text": "주 2회 이상으로 강화",
+          "source_anchor": "sample_발주처_설계변경지시공문.hwpx Table 1 [R2, C2]"
+        }
+      ],
+      "metadata": {
+        "paragraph_count": 15,
+        "table_count": 1,
+        "tables": [
+          [
+            [
+              "구분",
+              "기존 설계(당초)",
+              "발주처 변경 지시 내용"
+            ],
+            [
+              "버팀보 규격",
+              "H-300x300x10x15",
+              "H-350x350x12x19 단면 증대"
+            ],
+            [
+              "계측 주기",
+              "주 1회",
+              "주 2회 이상으로 강화"
+            ]
+          ]
+        ],
+        "chunk_count": 24
+      },
+      "from_cache": false
+    }
+  }
+}

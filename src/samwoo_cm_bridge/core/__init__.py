@@ -63,6 +63,11 @@ from .weather_stop_work_trigger import (
     WeatherStopWorkTrigger,
     issue_weather_stop_work_order,
 )
+from .doc_cache_manager import (
+    DocumentCacheManager,
+    get_cached_doc_summary,
+    cache_doc_result,
+)
 
 __all__ = [
     "OpenApiClient",
@@ -125,4 +130,7 @@ __all__ = [
     "generate_video_recording_log",
     "WeatherStopWorkTrigger",
     "issue_weather_stop_work_order",
+    "DocumentCacheManager",
+    "get_cached_doc_summary",
+    "cache_doc_result",
 ]

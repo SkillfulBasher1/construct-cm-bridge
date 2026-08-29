@@ -65,25 +65,42 @@ class DocumentParser:
                 })
         return file_list
 
-    def parse_document(self, filename: str) -> Dict[str, Any]:
-        """Parses a local project file into structured Markdown and structured metadata."""
+    def parse_document(self, filename: str, use_cache: bool = True) -> Dict[str, Any]:
+        """Parses a local project file into structured Markdown and metadata with SHA-256 caching."""
+        from .doc_cache_manager import DocumentCacheManager
+        cache_mgr = DocumentCacheManager(self.secure_dir)
+
+        if use_cache and cache_mgr.is_cache_valid(filename):
+            cached = cache_mgr.get_cached_document(filename)
+            if cached:
+                cached_data = cached.get("parsed_data", {})
+                cached_data["from_cache"] = True
+                cached_data["sha256"] = cached.get("sha256")
+                return cached_data
+
         file_path = self._validate_path(filename)
         ext = file_path.suffix.lower()
 
         if ext == ".hwpx":
-            return self._parse_hwpx(file_path)
+            res = self._parse_hwpx(file_path)
         elif ext in [".xlsx", ".xls"]:
-            return self._parse_xlsx(file_path)
+            res = self._parse_xlsx(file_path)
         elif ext in [".docx"]:
-            return self._parse_docx(file_path)
+            res = self._parse_docx(file_path)
         elif ext in [".pptx"]:
-            return self._parse_pptx(file_path)
+            res = self._parse_pptx(file_path)
         elif ext in [".pdf"]:
-            return self._parse_pdf(file_path)
-        elif ext in [".txt", ".csv", ".json", ".md"]:
-            return self._parse_text(file_path)
+            res = self._parse_pdf(file_path)
+        elif ext in [".txt", ".md", ".json"]:
+            res = self._parse_text(file_path)
         else:
             raise ValueError(f"Unsupported file format '{ext}' for file '{filename}'.")
+
+        res["from_cache"] = False
+        if use_cache:
+            cache_mgr.cache_document(filename, res, res.get("markdown"))
+
+        return res
 
     def parse_file(self, filename: str) -> Dict[str, Any]:
         """Alias for parse_document."""
