@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "samwoo-cm-bridge": {
+      "command": "python",
+      "args": [
+        "-m",
+        "samwoo_cm_bridge.cli",
+        "serve"
+      ],
+      "env": {
+        "PYTHONPATH": "c:\\Users\\tbvja\\Projects\\samwoo-cm-bridge\\src"
+      }
+    }
+  }
+}
