@@ -236,7 +236,7 @@ att_items = [
      "• 테스트 슈트: tests/ 디렉터리 내 21개 테스트 파일, 총 85개 테스트 케이스 전원 통과 (Pass Rate: 100% / 소요시간: 8.27s)\n• 검증 항목: HWPX/XLSX/PDF 파싱, Path Traversal 보안 방어, 5대 공종 안전율 검산, 기성내역서 변조 탐지, 화재 동시작업 충돌 감지, 기상 작업중지권 발령, SHA-256 캐시 적중(0.05초), 당일 일지 세션 병합, 프로젝트 메모리 DB 인덱싱 전 항목 완전 무결 검증 완료"),
     
     ("첨부 4: 오픈소스 GitHub 저장소 및 프로젝트 소스코드 안내",
-     "• 공식 GitHub 저장소: https://github.com/tbvja/samwoo-cm-bridge\n• 로컬 프로젝트 경로: c:/Users/tbvja/Projects/samwoo-cm-bridge\n• 시스템 프롬프트 명세: SYSTEM_PROMPT.md (Claude Desktop 사용자 맞춤 설정 복사용)\n• 시스템 아키텍처 상세 설계서: ARCHITECTURE.md\n• 하네스 불변 보안 규칙: RULES.md")
+     "• 공식 GitHub 저장소: https://github.com/SkillfulBasher1/samwoo-cm-bridge\n• 로컬 프로젝트 경로: c:/Users/tbvja/Projects/samwoo-cm-bridge\n• 시스템 프롬프트 명세: SYSTEM_PROMPT.md (Claude Desktop 사용자 맞춤 설정 복사용)\n• 시스템 아키텍처 상세 설계서: ARCHITECTURE.md\n• 하네스 불변 보안 규칙: RULES.md")
 ]
 
 for title, desc in att_items:
