@@ -44,7 +44,7 @@ from .core.weather_stop_work_trigger import issue_weather_stop_work_order
 
 def cmd_serve(args):
     """Run FastMCP Server over stdio."""
-    print("Starting Samwoo-CM-Bridge FastMCP Server (stdio)...", file=sys.stderr)
+    print("Starting Construct-CM-Bridge FastMCP Server (stdio)...", file=sys.stderr)
     run_server()
 
 
@@ -665,7 +665,7 @@ def cmd_weather_stop(args):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Samwoo-CM-Bridge CLI Tool")
+    parser = argparse.ArgumentParser(description="Construct-CM-Bridge CLI Tool")
     subparsers = parser.add_subparsers(dest="command", help="Available subcommands")
 
     # serve

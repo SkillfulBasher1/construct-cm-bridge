@@ -33,5 +33,5 @@ AI 에이전트의 환각(Hallucination)을 원천 차단하고, 건설사업관
   - 건설 기준: `[출처: KDS 21 30 00 2.1 (가설 흙막이 설계기준)]`
 
 ## 5. 최종 리포트 파일 생성
-검토가 완료되면 반드시 `export_review_document` 도구를 호출하여 삼우씨엠 표준 서식이 적용된 Word(`.docx`) 및 Markdown(`.md`) 문서로 로컬 작업 폴더에 보관할 것.
+검토가 완료되면 반드시 `export_review_document` 도구를 호출하여 CM 표준 서식이 적용된 Word(`.docx`) 및 Markdown(`.md`) 문서로 로컬 작업 폴더에 보관할 것.
 출처 앵커(Source Anchor) 정보가 각 대조 항목 하단에 빠짐없이 렌더링되도록 서식을 유지할 것.

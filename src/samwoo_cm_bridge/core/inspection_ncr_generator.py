@@ -120,9 +120,9 @@ class InspectionNCRGenerator:
         now = datetime.now()
         date_str = now.strftime("%Y년 %m월 %d일")
         deadline_str = corrective_deadline or "미입력"
-        doc_no = f"SWCM-NCR-{now.strftime('%Y%m%d')}-01"
+        doc_no = f"CM-NCR-{now.strftime('%Y%m%d')}-01"
 
-        md_content = f"""# 주식회사 삼우씨엠건축사사무소
+        md_content = f"""# 건설사업관리단
 **부적합 시정지시서 초안 (NCR DRAFT - 미승인)**
 
 ---
@@ -181,7 +181,7 @@ class InspectionNCRGenerator:
 
         sub_p = doc.add_paragraph()
         sub_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        sub_run = sub_p.add_run(f"주식회사 삼우씨엠건축사사무소 | {project_name}")
+        sub_run = sub_p.add_run(f"건설사업관리단 | {project_name}")
         sub_run.font.name = "맑은 고딕"
         sub_run.font.size = Pt(11)
         sub_run.font.bold = True

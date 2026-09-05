@@ -21,11 +21,19 @@ secure_local_data/*_03.docx
 secure_local_data/*_03.md
 secure_local_data/*_04.docx
 secure_local_data/*_04.md
+secure_local_data/*_05.docx
+secure_local_data/*_05.md
+secure_local_data/시정지시서_*.md
+secure_local_data/시정지시서_*.docx
+secure_local_data/테스트_*.md
+secure_local_data/테스트_*.docx
 secure_local_data/E2E_*.docx
 secure_local_data/E2E_*.md
 secure_local_data/.cache/
 secure_local_data/summaries/
 secure_local_data/project_memory.db
+secure_local_data/공문_*.*
+secure_local_data/콘크리트_품질관리대장.xlsx
 
 # Proposal Word Document (Kept local, excluded from Git)
 *.docx

@@ -71,8 +71,7 @@ class OfficialLetterGenerator:
         if not actions:
             actions = ["세부 조치사항과 발송 여부는 첨부 원문을 확인하여 책임기술인이 확정할 것"]
 
-        md_content = f"""# 주식회사 삼우씨엠건축사사무소
-**{project_name} 건설사업관리단**
+        md_content = f"""# {project_name} 건설사업관리단
 
 ---
 - **문서번호:** {doc_no}
@@ -106,7 +105,7 @@ class OfficialLetterGenerator:
 - **조치 기한:** {date_str}로부터 7일 이내 (별도 협의 시 조정 가능)
 
 ---
-**주식회사 삼우씨엠건축사사무소 책임건설사업관리기술인 (직인생략)**
+**건설사업관리단 책임건설사업관리기술인 (직인생략)**
 """
 
         # Generate Word (.docx)
@@ -129,7 +128,7 @@ class OfficialLetterGenerator:
         # Header Title
         h_p = doc.add_paragraph()
         h_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        h_run = h_p.add_run("주식회사 삼우씨엠건축사사무소")
+        h_run = h_p.add_run("건설사업관리단")
         h_run.font.name = "맑은 고딕"
         h_run.font.size = Pt(18)
         h_run.font.bold = True
@@ -137,7 +136,7 @@ class OfficialLetterGenerator:
 
         sub_p = doc.add_paragraph()
         sub_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        sub_run = sub_p.add_run(f"{project_name} 건설사업관리단")
+        sub_run = sub_p.add_run(f"{project_name}")
         sub_run.font.name = "맑은 고딕"
         sub_run.font.size = Pt(12)
         sub_run.font.bold = True
@@ -193,7 +192,7 @@ class OfficialLetterGenerator:
         doc.add_paragraph()
         sig_p = doc.add_paragraph()
         sig_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        sig_run = sig_p.add_run(f"주식회사 삼우씨엠건축사사무소\n책임건설사업관리기술인 {chief_cm_name} (직인생략)")
+        sig_run = sig_p.add_run(f"건설사업관리단\n책임건설사업관리기술인 {chief_cm_name} (직인생략)")
         sig_run.font.name = "맑은 고딕"
         sig_run.font.size = Pt(13)
         sig_run.font.bold = True

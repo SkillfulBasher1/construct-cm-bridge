@@ -65,7 +65,7 @@ class VideoRecordManager:
             f"# [주요 구조부 동영상 촬영 기록관리대장]",
             f"- **문서번호:** {doc_no}",
             f"- **공 사 명:** {project_name}",
-            f"- **시 공 자:** {contractor_name} / **건설사업관리자:** ㈜삼우씨엠건축사사무소",
+            f"- **시 공 자:** {contractor_name} / **건설사업관리자:** 건설사업관리단",
             f"- **총괄책임자:** {chief_cm_name}",
             f"- **작성일자:** {date_str}\n",
             f"# 1. 동영상 기록관리 개요",

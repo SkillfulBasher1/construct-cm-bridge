@@ -1,4 +1,4 @@
-"""Samwoo-CM-Bridge FastMCP Server Definition
+"""Construct-CM-Bridge FastMCP Server Definition
 
 Exposes CM 3-way Cross Verification Tools to Claude Desktop, Cursor, OpenClaw, and local agents.
 """
@@ -49,9 +49,9 @@ logger = logging.getLogger("samwoo_cm_bridge")
 
 # Initialize FastMCP Server
 mcp = FastMCP(
-    name="Samwoo-CM-Bridge",
+    name="Construct-CM-Bridge",
     instructions=(
-        "Samwoo-CM-Bridge는 삼우씨엠 건설사업관리(CM) 3자 교차 검토(국가법령-KCSC기준-시공사제출서류) "
+        "Construct-CM-Bridge는 건설사업관리(CM) 3자 교차 검토(국가법령-KCSC기준-시공사제출서류) "
         "엔진입니다. 로컬 보안 격리 폴더 내 문서를 읽고, 국가법령/KCSC 기준을 조회하며, "
         "파이썬 기반 수치 검산과 근거 추적을 수행하고 REVIEW_REQUIRED 상태를 포함한 검토 초안을 생성합니다."
     ),

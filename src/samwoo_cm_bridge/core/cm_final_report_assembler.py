@@ -66,7 +66,7 @@ class CMFinalReportAssembler:
             f"- **문서번호:** {doc_no}",
             f"- **발 주 자:** {client_name}",
             f"- **시 공 자:** {contractor_name}",
-            "- **건설사업관리자:** ㈜삼우씨엠건축사사무소",
+            "- **건설사업관리자:** 건설사업관리단",
             f"- **책임건설사업관리기술인:** {chief_cm_name}",
             f"- **보고일자:** {date_str}\n",
             "# 1. 자동 집계 범위",

@@ -3,7 +3,7 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "samwoo-cm-bridge"
+name = "construct-cm-bridge"
 version = "0.1.0"
 description = "실시간 법령·KCSC 연동 및 HWPX 파싱 기반 CM 3자 교차 검토 FastMCP 엔진"
 readme = "README.md"
@@ -29,4 +29,5 @@ dev = [
 ]
 
 [project.scripts]
+construct-cm-bridge = "construct_cm_bridge.cli:main"
 samwoo-cm-bridge = "samwoo_cm_bridge.cli:main"

@@ -1,14 +1,14 @@
 {
   "mcpServers": {
-    "samwoo-cm-bridge": {
+    "construct-cm-bridge": {
       "command": "python",
       "args": [
         "-m",
-        "samwoo_cm_bridge.cli",
+        "construct_cm_bridge.cli",
         "serve"
       ],
       "env": {
-        "PYTHONPATH": "c:\\Users\\tbvja\\Projects\\samwoo-cm-bridge\\src",
+        "PYTHONPATH": "c:\\Projects\\construct-cm-bridge\\src",
         "LAW_API_OC": "",
         "KCSC_API_KEY": ""
       }

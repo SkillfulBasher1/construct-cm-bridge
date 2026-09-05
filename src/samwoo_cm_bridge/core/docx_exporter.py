@@ -93,7 +93,7 @@ class DocxExporter:
             f.write(f"- **검토자:** {reviewer_name}\n\n")
             f.write(f"---\n\n")
             f.write(report_text)
-            f.write(f"\n\n---\n**주식회사 삼우씨엠건축사사무소 건설사업관리단**\n")
+            f.write(f"\n\n---\n**건설사업관리단 (CM)**\n")
 
         # 2. Build Word (.docx) document with styling
         doc = docx.Document()
@@ -130,7 +130,7 @@ class DocxExporter:
         meta_data = [
             [("문서번호", doc_number), ("검토일자", now_str)],
             [("프로젝트명", project_name), ("검토분야", discipline)],
-            [("검토자", reviewer_name), ("관리기관", "㈜삼우씨엠건축사사무소")],
+            [("검토자", reviewer_name), ("관리기관", "건설사업관리단")],
         ]
 
         for r_idx, row_pairs in enumerate(meta_data):
@@ -173,7 +173,7 @@ class DocxExporter:
         doc.add_paragraph()
         sig_p = doc.add_paragraph()
         sig_p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-        sig_run = sig_p.add_run(f"작성일: {now_str}\n주식회사 삼우씨엠건축사사무소 건설사업관리단 (인)")
+        sig_run = sig_p.add_run(f"작성일: {now_str}\n건설사업관리단 (인)")
         sig_run.font.name = "맑은 고딕"
         sig_run.font.size = Pt(10)
         sig_run.font.bold = True

@@ -1,7 +1,7 @@
-# [Samwoo-CM-Bridge] System Architecture & Specification
+# [Construct-CM-Bridge] System Architecture & Specification
 
 ## 1. 개요 (Overview)
-**Samwoo-CM-Bridge**는 삼우씨엠 사내 AI 활용 아이디어 공모전 [Track 2: 외부 AI 활용 아이디어 부문]에 최적화된 CM 전용 3자 교차 검토 MCP(Model Context Protocol) 엔진입니다.
+**Construct-CM-Bridge**는 건설사업관리(CM) 실무에 최적화된 현장 감리 제출도서 3자 수치 교차 검증 및 법적 리스크 방어 FastMCP(Model Context Protocol) 엔진입니다.
 
 ```
 +-------------------------------------------------------------------------------+
@@ -14,7 +14,7 @@
                                         | (1) Stdio (표준 입출력 프로토콜)
                                         v
 +-------------------------------------------------------------------------------+
-|                     [Samwoo-CM-Bridge (FastMCP Server)]                       |
+|                     [Construct-CM-Bridge (FastMCP Server)]                    |
 |                                                                               |
 |  +-------------------------------------------------------------------------+  |
 |  | Module 1. 외부 실시간 OpenAPI 커넥터 (External Legal & Standard Bridge)  |  |
@@ -33,7 +33,7 @@
 |  | Module 3. 다분야 수치 검산 & 리포트 생성기 (Math Verifier & Exporter)   |  |
 |  |  - 5대 공종(토목/구조, 기계/설비, 소방, 전기/통신, 건축) 공식 레지스트리  |  |
 |  |  - Python AST 기반 안전 커스텀 수식 검산 (Deterministic PASS/FAIL)        |  |
-|  |  - 삼우씨엠 표준 서식 기반 감리의견서(Word .docx / Markdown .md) 자동 생성|  |
+|  |  - CM 표준 서식 기반 감리의견서(Word .docx / Markdown .md) 자동 생성      |  |
 |  +-------------------------------------------------------------------------+  |
 +-------------------+---------------------------------------+-------------------+
                     |                                       |
@@ -56,7 +56,7 @@ sequenceDiagram
     autonumber
     actor CM as 건설사업관리기술인 (CM)
     participant Host as Claude Desktop / Host
-    participant MCP as Samwoo-CM-Bridge (FastMCP)
+    participant MCP as Construct-CM-Bridge (FastMCP)
     participant Parser as Local Doc Parser (Module 2)
     participant API as Legal/KCSC Client (Module 1)
     participant Math as Math Engine (Module 3)
@@ -84,7 +84,7 @@ sequenceDiagram
     Math-->>MCP: FAIL (부적합 / 기준대비 -14.3% 부족) 판정 반환
 
     Host->>MCP: export_review_document("가설흙막이_CM검토의견서.docx", report_text)
-    MCP->>Exp: 삼우씨엠 표준 서식(4단 대조표, 검산표, 조치의견) 렌더링
+    MCP->>Exp: CM 표준 서식(4단 대조표, 검산표, 조치의견) 렌더링
     Exp-->>MCP: .docx 및 .md 파일 생성 완료
     MCP-->>Host: 검토의견서 생성 경로 반환
     Host-->>CM: 최종 3자 교차 검토 결과 및 감리의견서 전달
@@ -111,9 +111,9 @@ sequenceDiagram
   4. 전기/통신: 3상 선로 전압강하율, 변압기 부하율
   5. 건축: 외벽 열관류율($U$-value)
 - **AST Safe Eval**: 악의적 코드 실행 없이 순수 공학 수식만을 안전하게 동적 연산.
-- **삼우씨엠 표준 Word 리포트**: Navy 색상 헤더, 4단 3자 대조표, PASS/FAIL 상태 배지, 공식 날인 서식 자동 반영.
+- **CM 표준 Word 리포트**: Navy 색상 헤더, 4단 3자 대조표, PASS/FAIL 상태 배지, 공식 날인 서식 자동 반영.
 
 ---
 
-## 4. 사내 AI 시스템(SAI)으로의 이식성
-코어 로직(`src/samwoo_cm_bridge/core/`)은 FastMCP 도구 래퍼와 분리되어 있습니다. 다른 백엔드로 이식할 때는 데이터 경로, 출력 저장소, API 자격증명 및 책임기술인 승인 흐름을 해당 환경에 맞게 구성해야 합니다.
+## 4. 기존 사내 AI 시스템(FastAPI/RAG)으로의 이식성
+코어 로직(`src/construct_cm_bridge/core/` 또는 `core/`)은 FastMCP 도구 래퍼와 분리되어 있습니다. 다른 백엔드로 이식할 때는 데이터 경로, 출력 저장소, API 자격증명 및 책임기술인 승인 흐름을 해당 환경에 맞게 구성해야 합니다.

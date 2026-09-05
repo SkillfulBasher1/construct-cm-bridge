@@ -1,2 +1,0 @@
-[console_scripts]
-samwoo-cm-bridge = samwoo_cm_bridge.cli:main

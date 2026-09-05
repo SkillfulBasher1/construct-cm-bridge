@@ -63,7 +63,7 @@ def test_subcontract_auditor():
     res = audit_subcontract_agreement(
         subcontract_excel_file="sample_하도급내역서.xlsx",
         contractor_name="(주)대우건설",
-        subcontractor_name="(주)삼우토건",
+        subcontractor_name="(주)한국토건",
     )
     assert res["status"] == "SUCCESS"
     assert res["subcontract_ratio_pct"] >= 82.0
@@ -75,7 +75,7 @@ def test_subcontract_auditor():
 
 def test_cm_final_report_assembler():
     res = assemble_cm_final_report(
-        project_name="삼우씨엠 신축공사 CM현장",
+        project_name="한국건설 신축공사 CM현장",
         report_type="준공 감리완료보고서",
     )
     assert res["status"] == "SUCCESS"

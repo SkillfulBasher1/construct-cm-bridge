@@ -116,7 +116,7 @@ def test_daily_log_session_smart_append():
         activities=morning_acts,
         inspections=morning_insps,
         workers_count=morning_workers,
-        project_name="삼우씨엠 신축공사 CM현장",
+        project_name="한국건설 신축공사 CM현장",
     )
     assert res_am["status"] == "SUCCESS"
     assert res_am["session_merged"] is False
@@ -140,7 +140,7 @@ def test_daily_log_session_smart_append():
         activities=afternoon_acts,
         inspections=afternoon_insps,
         workers_count=afternoon_workers,
-        project_name="삼우씨엠 신축공사 CM현장",
+        project_name="한국건설 신축공사 CM현장",
     )
     assert res_pm["status"] == "SUCCESS"
     assert res_pm["session_merged"] is True

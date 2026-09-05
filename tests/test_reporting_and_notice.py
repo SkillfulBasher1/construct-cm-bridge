@@ -16,7 +16,7 @@ def test_generate_weekly_cm_report():
     res = generate_weekly_cm_report(
         start_date="2026.08.15",
         end_date="2026.08.22",
-        project_name="삼우씨엠 신축공사 CM현장",
+        project_name="한국건설 신축공사 CM현장",
     )
     assert res["status"] == "SUCCESS"
     assert os.path.exists(res["docx_path"])

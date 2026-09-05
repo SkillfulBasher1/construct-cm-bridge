@@ -1,4 +1,4 @@
-"""End-to-End Tests for Samwoo-CM-Bridge MCP Server Tools"""
+"""End-to-End Tests for Construct-CM-Bridge MCP Server Tools"""
 
 import json
 from pathlib import Path
