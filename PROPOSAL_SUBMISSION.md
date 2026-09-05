@@ -2,7 +2,7 @@
 
 > **아이디어 명칭:** **Construct-CM-Bridge: 실시간 국가법령·KCSC 건설기준 연동 및 HWPX/도면 3자 수치 교차검증 기반 CM 감리업무 자동화 및 법적 리스크 방어 MCP 엔진**  
 > **적용 분야:** 건설사업관리(CM) / 현장 감리 기술검토 / 안전·품질 관리 / 감리 행정 자동화  
-> **공식 GitHub 저장소:** https://github.com/SkillfulBasher1/samwoo-cm-bridge  
+> **공식 GitHub 저장소:** https://github.com/SkillfulBasher1/construct-cm-bridge  
 > **생성된 정식 Word 파일:** `C:\Users\tbvja\Downloads\[양식2] 외부 AI 활용 아이디어 제안서_Construct-CM-Bridge.docx`
 
 ---
@@ -221,8 +221,8 @@ tests/test_source_anchoring.py PASSED [100%]
 ```
 
 ### ■ [첨부 4] 오픈소스 GitHub 저장소 및 프로젝트 소스코드 안내
-- **공식 GitHub 저장소 링크:** **https://github.com/SkillfulBasher1/samwoo-cm-bridge**
-- **로컬 프로젝트 디렉터리:** `c:/Users/tbvja/Projects/samwoo-cm-bridge`
-- **시스템 프롬프트 명세:** `SYSTEM_PROMPT.md` (Claude Desktop 사용자 맞춤 설정 복사용)
+- **공식 GitHub 저장소 링크:** **https://github.com/SkillfulBasher1/construct-cm-bridge**
+- **프로젝트 구성:** 코어 도구 모듈 26종, 85개 단위/통합 테스트 슈트, MCP 서버 프로토콜 구현체
+- **시스템 프롬프트 명세:** `SYSTEM_PROMPT.md` (Claude Desktop / VS Code 사용자 맞춤 설정 복사용)
 - **시스템 아키텍처 상세 설계서:** `ARCHITECTURE.md`
 - **하네스 불변 보안 규칙:** `RULES.md`
