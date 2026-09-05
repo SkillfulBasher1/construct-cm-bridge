@@ -174,7 +174,10 @@ c_tools.text = "" # Clear placeholder prompt
 
 add_heading_paragraph(c_tools, "Samwoo-CM-Bridge 구축에 투입된 AI 플랫폼 및 기술 스택", level=1)
 
-add_heading_paragraph(c_tools, "AI 플랫폼 및 클라이언트", level=2)
+add_heading_paragraph(c_tools, "AI 플랫폼, 개발 도구 및 클라이언트", level=2)
+add_styled_paragraph(c_tools, "VS Code (Visual Studio Code): 전체 프로젝트의 통합 개발 환경(IDE), FastMCP 로컬 디버깅 및 에이전틱 코딩 워크스페이스로 활용", bullet=True)
+add_styled_paragraph(c_tools, "Codex-GPT: 5대 공종 안전율/허용응력 AST 검산 알고리즘 및 복잡한 정규표현식 파라미터 추출 로직 구현 보조", bullet=True)
+add_styled_paragraph(c_tools, "ASTRA: 건설 엔지니어링 질의응답 및 감리 실무 프롬프트 워크플로우 최적화 분석 도구로 활용", bullet=True)
 add_styled_paragraph(c_tools, "Claude Desktop (Anthropic): FastMCP 프로토콜을 통하여 로컬 도구들과 실시간 통신하며, 감리원의 자연어 명령을 도구 호출 파이프라인으로 변환하는 메인 AI 클라이언트", bullet=True)
 add_styled_paragraph(c_tools, "Antigravity (Google DeepMind): 고성능 에이전틱 코딩 파트너로서 26개 코어 엔지니어링 모듈의 로직 구현, AST 수식 검산기 설계, 85개 자동화 테스트 슈트 작성 총괄", bullet=True)
 
@@ -202,6 +205,10 @@ add_heading_paragraph(c_feedback, "실무 적용 소감 및 사내 SAI ↔ 로�
 add_heading_paragraph(c_feedback, "외부 AI 실무 적용 소감: 중앙 집중식 RAG의 한계를 넘어 '로컬 MCP 개인비서'로 진화해야 합니다", level=2)
 add_styled_paragraph(c_feedback, "사내 자체 AI(SAI)를 사용해보며 느꼈던 가장 큰 갈증은 '우리 현장만의 발주처 특기시방과 어제 받은 설계변경 공문을 반영하지 못한다'는 점과 '엑셀 수식을 직접 계산해주지 못한다'는 점이었습니다.", bullet=True)
 add_styled_paragraph(c_feedback, "이번 프로젝트를 통해 검증된 'FastMCP 기반 로컬 Sandbox + Python 직접 연산 + 프로젝트 메모리 DB' 방식은 각 감리원마다 '자신만의 현장 전담 비서'를 갖게 해줌으로써, 중앙 RAG 방식의 한계를 100% 극복할 수 있음을 확인했습니다.", bullet=True)
+
+add_heading_paragraph(c_feedback, "향후 핵심 과제 및 단점 보완: 사내 보안 프로그램(DRM) 암호화 문서 지원 요청", level=2)
+add_styled_paragraph(c_feedback, "현재 겪고 있는 기술적 한계: 삼우씨엠 사내 보안 프로그램(문서보안 DRM)으로 암호화가 적용된 파일(HWPX, XLSX, DOCX, PDF)의 경우, 로컬 오픈소스 파서가 복호화 키 없이 직접 읽을 수 없어 현재는 감리원이 수동으로 복호화한 후 검토를 수행해야 하는 현실적 번거로움이 있습니다.", bullet=True)
+add_styled_paragraph(c_feedback, "본사 차원의 지원 요청 건의: 사내 보안 정책을 철저히 준수하면서도 현장 감리원이 편리하게 활용할 수 있도록, 본사 정보보안팀과 협의하여 승인된 로컬 프로세스 내에서 암호화 문서를 안전하게 메모리 상에서 파싱할 수 있는 '사내 공식 DRM 복호화 API 연동' 또는 '보안 인증 모듈 지원'을 강력히 건의드립니다. 이 연동이 이루어지면 암호화 도서까지 원클릭으로 전수 검토하는 완전무결한 시스템으로 도약할 수 있습니다.", bullet=True)
 
 add_heading_paragraph(c_feedback, "사내 SAI와 로컬 MCP의 앙상블 및 전사 확산 로드맵 제언", level=2)
 add_styled_paragraph(c_feedback, "1. 사내 SAI의 Action Engine으로 MCP 도입: 중앙 SAI는 전사 표준 사규 및 공통 시방 검색을 담당하고, 실제 현장 도서 파싱/수치 검산/공문 조립은 본 Samwoo-CM-Bridge(MCP)가 실행하도록 연계한다면 사내 AI 활용도가 비약적으로 상승할 것입니다.", bullet=True)
