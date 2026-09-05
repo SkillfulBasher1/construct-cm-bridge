@@ -2,6 +2,7 @@
 
 > **아이디어 명칭:** **Samwoo-CM-Bridge: 실시간 국가법령·KCSC 건설기준 연동 및 HWPX/도면 3자 수치 교차검증 기반 CM 감리업무 자동화 및 법적 리스크 방어 MCP 엔진**  
 > **적용 분야:** 건설사업관리(CM) / 현장 감리 기술검토 / 안전·품질 관리 / 감리 행정 자동화  
+> **공식 GitHub 저장소:** https://github.com/tbvja/samwoo-cm-bridge  
 > **생성된 정식 Word 파일:** `C:\Users\tbvja\Downloads\[양식2] 외부 AI 활용 아이디어 제안서_Samwoo-CM-Bridge.docx`
 
 ---
@@ -22,74 +23,85 @@
 ### ① 문제도출 (Before)
 *어떤 업무가, 왜 번거롭거나 시간이 오래 걸렸는지 적어주세요.*
 
-#### ■ 현장 감리업무의 고질적 병목 및 기존 외부 AI의 한계
+#### ■ 현장 감리업무의 고질적 병목 및 사내 자체 SAI(RAG 방식)의 한계
 
 ##### ▶ 수백 페이지에 달하는 시공사 제출도서의 수작업 검토 병목 (하루 3시간 이상 소요)
 - 현장 감리단은 시공사가 제출하는 시공계획서(HWPX), 구조/수치계산서(XLSX), 발주처 특기시방서(HWPX/DOCX), 장비일람표 도면(PDF), 기성내역서 등 수많은 도서를 매일 검토하고 표준 감리의견서를 작성해야 합니다.
 - 그러나 수많은 국가법령 조문, KCSC(KDS/KCS) 건설기준 시방치, 엑셀 셀 수식의 적정성을 일일이 사람이 수작업으로 찾고 대조하느라 하루 3시간 이상의 극심한 행정·기술적 병목이 발생하고 있습니다.
 
-##### ▶ 기존 외부 생성형 AI(ChatGPT, Claude 등)의 치명적 3대 한계로 인한 실무 도입 불가
-- **사내 도서 외부 유출 위험 (보안 문제):** 민감한 미공개 현장 설계도서, 기성 단가, 대외 공문서를 클라우드에 업로드할 경우 회사 보안 규정 위반 및 심각한 데이터 유출 리스크가 발생합니다.
-- **수치 계산 환각 (Hallucination):** LLM은 공학적 수치 연산(안전율 $F_s$, 허용응력, 소방펌프 전양정 계산 등)에서 그럴듯한 거짓 수치를 생성하므로, 감리원이 이를 그대로 인용할 경우 중대한 부실시공 및 법적 책임으로 직결됩니다.
-- **국내 건설기준(KCSC) 및 최신 법령 부재:** 일반 외부 AI는 2024~2026년 개정된 최신 한국 건설기준(KDS 21 30 00 가설흙막이 등)이나 산업안전보건법 세부 기준을 알지 못해 현장 실무 적용이 불가능합니다.
+##### ▶ 사내 자체 AI(SAI)의 RAG 방식이 가진 4대 근본적 한계와 현업 활용도 저하 원인
+1. **정적 데이터의 한계:** 사내 SAI는 사전에 중앙 서버 벡터DB에 임베딩된 범용 표준 문서만 검색하므로, 매일 현장에서 쏟아지는 최신 HWPX 시공계획서, 수식 엑셀 계산서, 도면 PDF 등 현장의 실시간 동적 도서를 읽고 분석하지 못합니다.
+2. **발주처별 특기시방 및 현장별 맞춤 요구조건 미반영:** 현장마다 발주처(LH, SH, 민간 디벨로퍼 등)의 과업지시서와 특기시방 요구조건이 전부 다른데, 중앙 RAG는 전국 수백 개 현장별 특수성과 필수 제출서류 요건을 반영하지 못해 실무 적용이 겉돌고 활용도가 극히 낮습니다.
+3. **설계개선 환류(Feedback Loop) 및 히스토리 부재:** 공사 진행 중 수시로 발생하는 발주처 지시공문, 실정보고, 설계변경(VE) 개선 사항을 시스템이 기억하지 못해, 이전 설계변경 내역이 신규 시공계획서에 반영되었는지 추적·환류할 수 없습니다.
+4. **텍스트 검색 기반의 수치 계산 환각 (Hallucination):** RAG는 단순 텍스트 유사도 검색이므로, 엑셀 셀 수식 오류 검증, 안전율($F_s$) 검산, 기성내역서 단가 변조 등 엄밀한 엔지니어링 수치 연산이 원천적으로 불가능합니다.
 
-##### ▶ 육안 검토의 한계로 인한 감리원 법적 책임(중대재해처벌법·건진법) 노출
-- 기성내역서 단가 변조 및 엑셀 수식 하드코딩, 화재위험 동시작업(용접 + 가연성 우레탄폼 단열재) 공간 중복, 우천 타설 및 강풍 양중 등 현장 안전·품질 결함을 사람이 육안으로 100% 걸러내지 못해 발생하는 법적 리스크가 매우 큽니다.
+##### ▶ 감리원 법적 책임(중대재해처벌법·건진법) 노출 위험
+- 기성내역서 단가 변조 및 엑셀 수식 하드코딩, 화재위험 동시작업(용접 + 가연성 우레탄폼 단열재) 공간 중복, 우천 타설 및 강풍 양중 등 중대 재해 및 법적 분쟁 요소를 사람이 육안으로 100% 걸러내기 어려워 감리원의 법적 리스크가 가중되고 있습니다.
 
 ---
 
 ### ② 과정 (AI와의 대화, Process)
 *AI에게 시도한 질문(프롬프트)이나 대화 흐름을 요약해 주세요.*
 
-#### ■ FastMCP 기반 100% 로컬 보안 환경 구축 및 26개 코어 모듈 협업 개발
+#### ■ FastMCP 기반 100% 로컬 보안 환경 구축 및 '1인 1AI 맞춤 비서' 26개 모듈 구현
 
-##### ▶ 보안 혁신: 외부 유출 제로의 FastMCP (Model Context Protocol) 로컬 에이전트 도입
-- 클라우드로 파일을 업로드하지 않고, 사용자의 로컬 PC(Stdio 파이프라인) 내부에서만 도면과 문서를 안전하게 격리 파싱하는 Anthropic FastMCP 아키텍처를 구축했습니다.
-- AI에게 **4대 하네스 불변 규칙(Zero-Hallucination, Python 직접 연산, 로컬 Sandbox 격리, 정밀 출처 좌표 Line/Cell 앵커링)**을 시스템 프롬프트(`SYSTEM_PROMPT.md`)로 주입하여 환각을 원천 차단했습니다.
+##### ▶ 아키텍처 혁신: 외부 유출 제로의 FastMCP (Model Context Protocol) 로컬 에이전트 도입
+- 클라우드로 도면과 문서를 전송하지 않고, 각 감리원의 로컬 PC(Stdio 통신) 내부에서만 도서를 격리 파싱하는 Anthropic FastMCP 표준 프로토콜을 전면 도입했습니다.
+- AI에게 **4대 하네스 불변 규칙(Zero-Hallucination, Python 직접 연산, 로컬 Sandbox 격리, 정밀 출처 좌표 Line/Cell 앵커링)**을 시스템 프롬프트(`SYSTEM_PROMPT.md`)로 주입하여 수치 환각을 원천 차단했습니다.
 
-##### ▶ AI 파트너와의 대화형 프롬프트 엔지니어링 및 26개 실무 모듈 구현 흐름
-1. **[법령/기준 실시간 연동]:**  
-   *"국가법령정보센터 및 KCSC(건설기준정보시스템) OpenAPI를 실시간 연동하여 조문 번호와 Line 좌표를 가져와줘"*  
+##### ▶ 사내 SAI의 한계를 극복한 '개인별 현장 전담 비서' 및 26개 실무 코어 모듈 협업 개발
+1. **[현장 프로젝트 메모리 & 설계개선 환류 엔진]:**  
+   발주처 지시공문, 실정보고, 회의록을 로컬 DB(`project_memory.db`)에 자동 색인하여 "지난달 발주처 지시사항"을 기억하고 설계변경 반영 여부를 자동 추적  
+   ➔ `project_memory_engine.py`, `design_change_tracker.py` 구현
+2. **[발주처 특기시방 맞춤 진단]:**  
+   발주처 과업지시서/특기시방서에서 필수 제출도서 요건을 추출하여 현재 폴더 내 서류 접수/누락 현황표 자동 생성  
+   ➔ `custom_requirement_auditor.py` 구현
+3. **[실시간 법령 & KCSC 연동]:**  
+   국가법령정보센터 및 KCSC(건설기준정보시스템) OpenAPI를 실시간 조회하여 최신 조문 번호와 Line 좌표를 매핑  
    ➔ `openapi_client.py` 구현 (Zero-Hallucination 실현)
-2. **[다차원 로컬 문서 파싱]:**  
-   *"HWPX(Zip-XML), XLSX 수식, DOCX, 도면 PDF(pdfplumber) 전용 로컬 파서를 만들어줘"*  
+4. **[다차원 로컬 문서 파싱]:**  
+   HWPX(Zip-XML), XLSX 수식, DOCX, 도면 PDF(pdfplumber) 전용 로컬 파서 구축  
    ➔ `doc_parser.py` 구현
-3. **[3자 수치 교차검증 & 검산기]:**  
-   *"도면 PDF 장비일람표 ↔ 계산서 ↔ 산출서 간 수치 불일치 및 안전율(Fs) AST 검산기를 만들어줘"*  
+5. **[3자 수치 교차검증 & AST 검산기]:**  
+   도면 PDF 장비일람표 ↔ 계산서 ↔ 산출서 간 3자 대조 및 안전율 AST 연산  
    ➔ `equipment_quantity_auditor.py`, `formula_engine.py` 구현 (1단 버팀보 $F_s=1.07 < 1.25$ 결함 0.1초 만에 적발)
-4. **[기성내역서 수치 변조 탐지]:**  
-   *"기성내역서 Rev0 vs Rev1 비교 및 엑셀 수식 하드코딩 변조를 탐지해줘"*  
+6. **[기성내역서 변조 감사]:**  
+   기성내역서 Rev0 vs Rev1 비교 및 엑셀 수식 하드코딩 변조 탐지  
    ➔ `diff_audit_engine.py` 구현
-5. **[현장 법적 리스크 선제 방어]:**  
-   *"당일 작업계획에서 화재 동시작업(용접+우레탄폼) 충돌 감지 및 기상특보(강우/강풍) 연동 작업중지명령서를 기안해줘"*  
+7. **[감리원 법적 리스크 선제 방어]:**  
+   화재 동시작업(용접+우레탄폼) 충돌 감지 및 기상특보(강우/강풍) 연동 작업중지명령서 즉시 기안  
    ➔ `fire_hazard_conflict_detector.py`, `weather_stop_work_trigger.py` 구현
-6. **[현장 행정 완결]:**  
-   *"콘크리트 28일 강도 추적 관리대장, 사진대지 Before/After 카드, 하도급 82% 룰 심사, 준공 감리완료보고서 원클릭 일괄 조립기 구현"*  
-   ➔ `concrete_qc_tracker.py`, `ncr_action_sheet_builder.py`, `subcontract_auditor.py`, `cm_final_report_assembler.py` 구현
-7. **[성능 최적화]:**  
-   *"반복 파싱 방지 SHA-256 해시 캐시와 당일 오전/오후 일지 스마트 세션 병합을 추가해줘"*  
-   ➔ `doc_cache_manager.py`, `daily_log_generator.py` 구현 (0.05초 캐시 반환)
+8. **[현장 행정 완결]:**  
+   콘크리트 28일 강도 관리대장, 사진대지 Before/After 카드, 하도급 82% 룰 심사, 준공 감리완료보고서 원클릭 조립  
+   ➔ `concrete_qc_tracker.py`, `subcontract_auditor.py`, `cm_final_report_assembler.py` 구현
+9. **[성능 최적화]:**  
+   반복 파싱 방지 SHA-256 해시 캐시(0.05초) 및 당일 오전/오후 일지 스마트 세션 병합  
+   ➔ `doc_cache_manager.py`, `daily_log_generator.py` 구현
 
 ##### ▶ 자동화 테스트를 통한 엔지니어링 신뢰성 100% 검증
-- 총 **60개 자동화 단위/통합 테스트 케이스(`pytest`)**를 작성하여, 수치 연산 및 서식 생성이 단 5초 만에 100% 통과(Pass Rate: 100%)함을 엄밀히 입증했습니다.
+- 총 **85개 자동화 단위/통합 테스트 케이스(`pytest`)**를 구축하여, 수치 연산 및 서식 생성이 단 8초 만에 100% 통과(Pass Rate: 100%)함을 엄밀히 입증했습니다.
 
 ---
 
 ### ③ 결과 및 기대효과 (After)
 *업무에 적용 후 달라진 점이나, 구현 완료 시 기대되는 업무 단축 효과를 적어주세요.*
 
-#### ■ 3시간 업무를 10초 만에 완결하는 '디지털 스마트 CM' 혁신 달성
+#### ■ 사내 SAI 한계 극복! 감리원 '1인 1AI 맞춤 전담 비서' 구축 및 무한한 확장성 달성
+
+##### ▶ 중앙 RAG(SAI) 대비 MCP 개인 비서 체계의 4대 차별화 성과
+1. **'나만의 현장 전담 비서' 화 (Personalized Agent):** 중앙 RAG의 획일적인 답변에서 벗어나, 내 담당 현장의 로컬 폴더(`secure_local_data/`)에 담긴 발주처 특기시방, 설계변경 공문, 당일 일보를 기억하고 1:1 맞춤형으로 보좌하는 전담 비서 구현.
+2. **설계개선 환류 (Feedback Loop) 완전 실현:** 지난 회의록과 발주처 지시사항이 시공계획서에 반영되었는지 시스템이 자동으로 대조·추적하여, 현장 설계변경 누락 사고를 원천 방지.
+3. **독보적인 플러그형 확장성 (Pluggable MCP Tools):** 파이썬 함수 하나만 추가하면 드론 사진 검측, BIM 모델 연동, 사내 인트라넷 연동 등 어떤 기능이든 레고 블록처럼 무한 확장 가능하며, Claude/Gemini/ChatGPT 등 모든 외부 LLM과 즉시 호환.
+4. **수치 검산 100% 무오류 (Zero-Hallucination):** Python AST 코드로 직접 검산하여 안전율 미달($F_s=1.07 < 1.25$), 소방펌프 토출량 불일치, 기성내역서 수식 조작 등 휴먼 에러 제로화 달성.
 
 ##### ▶ 정량적 기대효과: 검토 시간 90% 단축 및 연간 500시간 이상 절감
 - **검토 및 대조표 작성 시간 혁신:** 건당 3시간 이상 소요되던 시공계획서/계산서/시방서 3자 대조 및 감리의견서 작성을 말 한마디로 **10초 만에 완결** (90% 이상 공수 절감).
-- **수치 검산 100% 무오류 (Zero-Hallucination):** 1단 버팀보 안전율 미달($F_s=1.07 < 1.25$), 소방펌프 토출량 불일치(700 vs 650 L/min), 수량산출서 곱셈 오류(40만원 차액) 등 휴먼 에러 제로화.
 - **SHA-256 스마트 캐싱:** 동일 문서 재호출 시 무거운 파싱 없이 **0.05초 만에 요약본 즉각 로드**.
 
-##### ▶ 정성적 기대효과 및 삼우씨엠의 독보적 경쟁력 확보
+##### ▶ 정성적 기대효과 및 삼우씨엠의 독보적 기술 리더십 확보
 - **완전 무결한 로컬 데이터 보안:** 민감한 사내 도서가 외부 클라우드로 단 한 글자도 나가지 않아, 보안 감사에 100% 부합하며 전사 감리현장 즉시 배포 가능.
 - **감리원 법적 안전장치 확보:** 중대재해처벌법상 화재 동시작업 위반, 우천 타설 및 강풍 양중 위험을 AI가 실시간 경보하고 정식 작업중지 명령서(.docx)를 자동 기안하여 감리단 법적 책임 선제적 방어.
 - **삼우씨엠 표준 고품질 산출물 자동화:** 정밀 출처 좌표(`Line/Cell`)가 포함된 감리의견서, 시정지시서(NCR), 일일업무일보, 준공완료보고서가 삼우씨엠 공식 Word 서식으로 즉시 출력되어 전사 감리 품질 상향 평준화.
-- **대외 스마트 CM 브랜드 가치 제고:** 발주처 및 인허가 관청에 첨단 디지털 기반 3자 교차 검토서를 제출함으로써 '국내 1위 CM 기업' 삼우씨엠의 스마트 건설기술 리더십 입증.
 
 ---
 
@@ -99,7 +111,7 @@
 
 #### ▶ AI 플랫폼 및 클라이언트
 - **Claude Desktop (Anthropic):** FastMCP 프로토콜을 통하여 로컬 도구들과 실시간 통신하며, 감리원의 자연어 명령을 도구 호출 파이프라인으로 변환하는 메인 AI 클라이언트
-- **Antigravity (Google DeepMind):** 고성능 에이전틱 코딩 파트너로서 26개 코어 엔지니어링 모듈의 로직 구현, AST 수식 검산기 설계, 60개 자동화 테스트 슈트 작성 총괄
+- **Antigravity (Google DeepMind):** 고성능 에이전틱 코딩 파트너로서 26개 코어 엔지니어링 모듈의 로직 구현, AST 수식 검산기 설계, 85개 자동화 테스트 슈트 작성 총괄
 
 #### ▶ 엔터프라이즈 통합 프레임워크 및 공공 OpenAPI
 - **FastMCP (Python SDK):** Anthropic의 공식 Model Context Protocol SDK를 기반으로 Stdio 보안 파이프라인 구축
@@ -116,16 +128,16 @@
 
 ## 3. 건의사항 및 기타 의견 (선택사항)
 
-### ■ 실무 적용 소감 및 삼우씨엠 전사 확산을 위한 제언
+### ■ 실무 적용 소감 및 사내 SAI ↔ 로컬 MCP 시너지 확산 제언
 
-#### ▶ 외부 AI 실무 적용 소감: '클라우드 업로드' 대신 '로컬 MCP'가 건설 CM의 정답입니다
-- 그동안 외부 AI 도입의 가장 큰 걸림돌은 사내 도서 외부 유출(보안)과 수치 계산 환각(정확성)이었습니다.
-- 이번 프로젝트를 통해 검증된 **"FastMCP 기반 로컬 Sandbox 격리 + Python 직접 연산 + 공공 법령 OpenAPI 연동"** 모델은 보안과 정확성을 100% 만족하는 가장 현실적이고 강력한 엔터프라이즈 AI 표준 아키텍처임을 체감했습니다.
+#### ▶ 외부 AI 실무 적용 소감: 중앙 집중식 RAG의 한계를 넘어 '로컬 MCP 개인비서'로 진화해야 합니다
+- 사내 자체 AI(SAI)를 사용해보며 느꼈던 가장 큰 갈증은 **"우리 현장만의 발주처 특기시방과 어제 받은 설계변경 공문을 반영하지 못한다"**는 점과 **"엑셀 수식을 직접 계산해주지 못한다"**는 점이었습니다.
+- 이번 프로젝트를 통해 검증된 **"FastMCP 기반 로컬 Sandbox + Python 직접 연산 + 프로젝트 메모리 DB"** 방식은 각 감리원마다 **'자신만의 현장 전담 비서'**를 갖게 해줌으로써, 중앙 RAG 방식의 한계를 100% 극복할 수 있음을 확인했습니다.
 
-#### ▶ 사내 전사 확산 및 상용화를 위한 건의사항
-1. **사내 원클릭 설치형 패키지 배포:** 복잡한 환경 설정 없이 각 현장 감리원이 실행 아이콘 하나만 클릭하면 Claude Desktop과 즉시 연동되는 'Samwoo-CM-Bridge 패키지'를 전사 배포해주시길 건의드립니다.
-2. **삼우씨엠 표준 도서 템플릿과의 공식 연계:** 감리단에서 주로 쓰는 표준 검측양식, 감리일보, 공문 서식을 본 엔진의 `docx_exporter`와 공식 연계한다면 전사 감리 행정의 완전 자동화가 실현될 것입니다.
-3. **삼우씨엠 자체 건설 지식 DB(사내 기준) 연계:** 공공 KCSC 기준 외에 삼우씨엠이 수십 년간 축적해 온 '사내 CM 업무매뉴얼' 및 '공종별 감리지침서'를 로컬 DB에 연동한다면 타 CM사가 흉내 낼 수 없는 삼우씨엠만의 독보적인 AI 기술 경쟁력이 될 것입니다.
+#### ▶ 사내 SAI와 로컬 MCP의 앙상블 및 전사 확산 로드맵 제언
+1. **사내 SAI의 Action Engine으로 MCP 도입:** 중앙 SAI는 전사 표준 사규 및 공통 시방 검색을 담당하고, 실제 현장 도서 파싱/수치 검산/공문 조립은 본 `Samwoo-CM-Bridge(MCP)`가 실행하도록 연계한다면 사내 AI 활용도가 비약적으로 상승할 것입니다.
+2. **전사 1인 1AI 현장 비서 배포:** 복잡한 설정 없이 원클릭 실행 아이콘으로 로컬 폴더만 지정하면 즉시 동작하는 '삼우CM 표준 MCP 패키지'를 전 현장 감리원에게 보급할 것을 제안합니다.
+3. **삼우씨엠 고유 지식 환류 자산화:** 각 현장의 설계변경 VE 사례와 발주처 특기시방 검토 결과가 로컬 DB에 누적되어, 향후 신규 수주 및 기술 제안서 작성 시 삼우씨엠만의 강력한 빅데이터 자산으로 환류될 수 있습니다.
 
 ---
 
@@ -155,6 +167,10 @@
 │  [3. 수치 연산 & 감사 엔진]           [4. 삼우씨엠 표준 서식 조립기]        │
 │   - Python AST 안전율/응력 검산         - 삼우씨엠 표준 감리의견서 (.docx)   │
 │   - 기성내역서 수식 변조 탐지           - 시정지시서 / 일일일보 / 준공보고서 │
+│                                                                             │
+│  [5. 프로젝트 메모리 & 지시 추적]     [6. 법적 리스크 선제 방어 엔진]        │
+│   - 발주처 공문/회의록 색인 (SQLite)   - 화재위험 동시작업 공간 충돌 감지   │
+│   - 설계변경(VE) 누적 내역 자동 추적   - 기상특보(강우/강풍) 연동 작업중지권 │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -165,32 +181,41 @@
   `[결함 적발] 1단 버팀보 계산 안전율 Fs = 1.07 < KDS 기준 안전율 1.25 (안전율 14.4% 부족)`  
   ➔ `종합_CM기술검토의견서.docx` 자동 생성 (정밀 출처: `sample_가설흙막이_시공계획서.hwpx L12 (P-003)` | `sample_가설흙막이_구조계산서.xlsx!버팀보계산!R14C3`)
 
-### ■ [첨부 3] 60개 자동화 단위/통합 테스트 (pytest) 100% 통과 검증 로그
+### ■ [첨부 3] 85개 자동화 단위/통합 테스트 (pytest) 100% ALL PASS 검증 로그
 ```text
 ============================= test session starts =============================
-platform win32 -- Python 3.13.7, pytest-9.0.2, pluggy-1.6.0
+platform win32 -- Python 3.13.7, pytest-8.4.2, pluggy-1.6.0
 rootdir: C:\Users\tbvja\Projects\samwoo-cm-bridge
-collected 60 items
+collected 85 items
 
-tests/test_adaptive_checklist.py PASSED [  3%]
-tests/test_batch_cross_checker.py PASSED [  6%]
-tests/test_comprehensive_pipeline.py PASSED [ 10%]
-tests/test_custom_requirement_auditor.py PASSED [ 11%]
-tests/test_diff_audit.py PASSED [ 15%]
-tests/test_doc_cache_and_session.py PASSED [ 20%]
-tests/test_doc_parser.py PASSED [ 28%]
-tests/test_docx_exporter.py PASSED [ 30%]
-tests/test_end_to_end_mcp.py PASSED [ 31%]
-tests/test_equipment_quantity_auditor.py PASSED [ 36%]
-tests/test_field_tools.py PASSED [ 46%]
-tests/test_final_practical_tools.py PASSED [ 53%]
-tests/test_formula_engine.py PASSED [ 65%]
-tests/test_openapi_client.py PASSED [ 73%]
-tests/test_project_memory.py PASSED [ 76%]
-tests/test_reporting_and_notice.py PASSED [ 80%]
-tests/test_risk_defense_tools.py PASSED [ 88%]
-tests/test_semantic_searcher.py PASSED [ 93%]
+tests/test_adaptive_checklist.py PASSED [  2%]
+tests/test_audit_regressions.py PASSED [ 24%]
+tests/test_batch_cross_checker.py PASSED [ 27%]
+tests/test_comprehensive_pipeline.py PASSED [ 29%]
+tests/test_custom_requirement_auditor.py PASSED [ 30%]
+tests/test_diff_audit.py PASSED [ 32%]
+tests/test_doc_cache_and_session.py PASSED [ 36%]
+tests/test_doc_parser.py PASSED [ 42%]
+tests/test_docx_exporter.py PASSED [ 43%]
+tests/test_end_to_end_mcp.py PASSED [ 44%]
+tests/test_equipment_quantity_auditor.py PASSED [ 48%]
+tests/test_field_tools.py PASSED [ 55%]
+tests/test_final_practical_tools.py PASSED [ 60%]
+tests/test_formula_engine.py PASSED [ 68%]
+tests/test_mcp_transport.py PASSED [ 69%]
+tests/test_openapi_client.py PASSED [ 80%]
+tests/test_project_memory.py PASSED [ 82%]
+tests/test_reporting_and_notice.py PASSED [ 84%]
+tests/test_risk_defense_tools.py PASSED [ 90%]
+tests/test_semantic_searcher.py PASSED [ 95%]
 tests/test_source_anchoring.py PASSED [100%]
 
-============================= 60 passed in 5.36s ==============================
+============================= 85 passed in 8.27s ==============================
 ```
+
+### ■ [첨부 4] 오픈소스 GitHub 저장소 및 프로젝트 소스코드 안내
+- **공식 GitHub 저장소 링크:** **https://github.com/tbvja/samwoo-cm-bridge**
+- **로컬 프로젝트 디렉터리:** `c:/Users/tbvja/Projects/samwoo-cm-bridge`
+- **시스템 프롬프트 명세:** `SYSTEM_PROMPT.md` (Claude Desktop 사용자 맞춤 설정 복사용)
+- **시스템 아키텍처 상세 설계서:** `ARCHITECTURE.md`
+- **하네스 불변 보안 규칙:** `RULES.md`

@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+*.log
+
+# VS Code / IDE
+.vscode/
+.idea/
+
+# Temp test generated outputs (Keep sample_* files)
+secure_local_data/*_2026*.docx
+secure_local_data/*_2026*.md
+secure_local_data/*_02.docx
+secure_local_data/*_02.md
+secure_local_data/*_03.docx
+secure_local_data/*_03.md
+secure_local_data/*_04.docx
+secure_local_data/*_04.md
+secure_local_data/E2E_*.docx
+secure_local_data/E2E_*.md
+secure_local_data/.cache/
+secure_local_data/summaries/
+secure_local_data/project_memory.db
