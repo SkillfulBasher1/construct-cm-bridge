@@ -1,22 +1,12 @@
-"""Subcontract Agreement Appropriateness & Compliance Auditor (Module 21)
+"""Evidence and arithmetic screening for subcontract agreement spreadsheets."""
 
-Audits subcontract agreements and notifications under:
-- Framework Act on the Construction Industry (건설산업기본법 제31조 - 하도급계약의 적정성 심사)
-- Subcontract Ratio Threshold (82% of original contract price)
-- Direct Construction Ratio Obligations (직접시공의무비율)
-- Specialized contractor licensing and anti-resubcontracting compliance.
-"""
-
-import os
-import re
 import logging
 from datetime import datetime
-from pathlib import Path
-from typing import Dict, Any, List, Optional, Union
+from typing import Dict, Any, List, Optional
 
 import openpyxl
 
-from .doc_parser import DocumentParser, SECURE_DATA_DIR
+from .doc_parser import DocumentParser
 from .docx_exporter import DocxExporter
 
 logger = logging.getLogger(__name__)
@@ -31,31 +21,30 @@ class SubcontractAuditor:
         exporter: Optional[DocxExporter] = None,
     ):
         self.parser = parser or DocumentParser()
-        self.exporter = exporter or DocxExporter()
+        self.exporter = exporter or DocxExporter(self.parser.secure_dir)
         self.secure_dir = self.parser.secure_dir
 
     def audit_subcontract(
         self,
         subcontract_excel_file: str,
-        contractor_name: str = "(주)대우건설",
-        subcontractor_name: str = "(주)삼우토건",
-        project_name: str = "삼우씨엠 신축공사 CM현장",
-        chief_cm_name: str = "김수석 책임건설사업관리기술인",
+        contractor_name: str = "미입력 시공사",
+        subcontractor_name: str = "미입력 하수급인",
+        project_name: str = "미입력 프로젝트",
+        chief_cm_name: str = "미입력 책임기술인",
     ) -> Dict[str, Any]:
         """Parses subcontract spreadsheet and performs 4-pillar statutory compliance review."""
-        excel_path = (self.secure_dir / os.path.basename(subcontract_excel_file)).resolve()
-        if not excel_path.exists():
-            raise FileNotFoundError(f"Subcontract file '{subcontract_excel_file}' not found in {self.secure_dir}")
+        excel_path = self.parser._validate_path(subcontract_excel_file)
+        if excel_path.suffix.lower() not in [".xlsx", ".xlsm"]:
+            raise ValueError("하도급 검토 입력은 XLSX/XLSM 파일이어야 합니다.")
 
         wb = openpyxl.load_workbook(excel_path, data_only=True)
         
         # Extract contract numbers
-        contract_work_name = "토공사 및 가설 흙막이 지보공사"
-        original_contract_amount = 1_500_000_000.0  # 15억원 (도급액)
-        subcontract_amount = 1_200_000_000.0        # 12억원 (하도급액)
-        expected_price_amount = 1_450_000_000.0     # 14.5억원 (발주자 예정가격)
-        license_registered = "토공사업, 비계구조물해체공사업 (보유)"
-        has_resubcontract = False
+        contract_work_name = "미확인"
+        original_contract_amount: Optional[float] = None
+        subcontract_amount: Optional[float] = None
+        license_registered: Optional[str] = None
+        has_resubcontract: Optional[bool] = None
 
         # Parse Excel cells if available
         for sheet_name in wb.sheetnames:
@@ -64,72 +53,89 @@ class SubcontractAuditor:
                 if not row or not any(row):
                     continue
                 row_str = " ".join([str(c) for c in row if c is not None])
+                numeric_values = [
+                    float(val)
+                    for val in row
+                    if isinstance(val, (int, float)) and not isinstance(val, bool) and val > 0
+                ]
                 
                 # Check for amounts
-                if ("원도급" in row_str or "도급금액" in row_str or "원도급액" in row_str) and "하도급" not in row_str:
-                    for val in row:
-                        if isinstance(val, (int, float)) and val > 1_000_000:
-                            original_contract_amount = float(val)
-                elif "하도급" in row_str and ("금액" in row_str or "계약액" in row_str or "내역" in row_str or "공종" in row_str):
-                    for val in row:
-                        if isinstance(val, (int, float)) and val > 1_000_000:
-                            subcontract_amount = float(val)
+                if any(k in row_str for k in ["원도급", "도급금액", "원도급액"]) and "하도급 계약금액" not in row_str and numeric_values:
+                    original_contract_amount = max(numeric_values)
+                elif "하도급" in row_str and any(k in row_str for k in ["금액", "계약액"]) and numeric_values:
+                    subcontract_amount = max(numeric_values)
                 if "공사명" in row_str or "하도급 공종" in row_str:
                     for val in row:
                         if isinstance(val, str) and len(val) > 4 and "공사명" not in val and "기본정보" not in val:
                             contract_work_name = val
+                if any(k in row_str for k in ["면허", "등록증", "전문건설업"]):
+                    text_values = [str(val).strip() for val in row if isinstance(val, str)]
+                    license_registered = " / ".join(text_values[1:]) or row_str
+                if "재하도급" in row_str:
+                    if any(k in row_str for k in ["해당 없음", "없음", "미실시"]):
+                        has_resubcontract = False
+                    elif any(k in row_str for k in ["있음", "실시", "해당"]):
+                        has_resubcontract = True
 
-        # 1. Statutory Subcontract Ratio Calculation (건산법 제31조)
-        # Ratio = Subcontract Amount / Original Contract Amount * 100
+        if original_contract_amount is None or subcontract_amount is None:
+            raise ValueError("원도급 금액과 하도급 계약금액을 문서에서 확인할 수 없습니다.")
+        if original_contract_amount <= 0 or subcontract_amount < 0:
+            raise ValueError("계약금액은 유효한 0 이상의 값이어야 합니다.")
+
+        # Arithmetic screening only; legal applicability depends on the current rules and contract.
         subcontract_ratio = (subcontract_amount / original_contract_amount) * 100.0
         sub_ratio_pass = subcontract_ratio >= 82.0
 
-        # 2. Direct Construction Check (직접시공의무 건산법 제28조의2)
-        # For projects under 70억원: direct construction ratio should be maintained
-        direct_ratio = ((original_contract_amount - subcontract_amount) / original_contract_amount) * 100.0
-        direct_ratio_pass = direct_ratio >= 20.0  # standard threshold
+        # This residual is not evidence of the contractor's actual direct-construction ratio.
+        residual_ratio = ((original_contract_amount - subcontract_amount) / original_contract_amount) * 100.0
+
+        if subcontract_ratio > 100.0:
+            ratio_status = "원도급액 초과 (REVIEW_REQUIRED)"
+            ratio_action = "원도급액보다 큰 하도급액의 입력 셀과 계약 범위를 재확인"
+        elif sub_ratio_pass:
+            ratio_status = "선별 기준 이상 (SCREENING_ONLY)"
+            ratio_action = "금액비율만 확인됨. 적용 법령과 심사대상 여부는 계약조건을 포함해 확인"
+        else:
+            ratio_status = "선별 기준 미달 (REVIEW_REQUIRED)"
+            ratio_action = "기준 미달 가능성에 대한 법령·계약조건 검토 필요"
 
         # 3. Overall Verdict
         review_items: List[Dict[str, Any]] = [
             {
                 "no": 1,
                 "review_topic": "하도급 계약비율 적정성",
-                "legal_criteria": "도급금액의 82% 이상 (건산법 제31조제1항)",
+                "legal_criteria": "82% 선별 기준(실제 적용 법령·산식은 담당자 확인 필요)",
                 "submitted_value": f"{subcontract_ratio:.2f}% ({subcontract_amount:,.0f}원 / {original_contract_amount:,.0f}원)",
-                "status": "적정 (PASS)" if sub_ratio_pass else "심사대상 (REVIEW_REQUIRED)",
-                "action": "기준(82%) 이상으로 적정 통보" if sub_ratio_pass else "하도급비율 82% 미달에 따른 '하도급 적정성 심사위원회' 개최 의무 대상",
+                "status": ratio_status,
+                "action": ratio_action,
             },
             {
                 "no": 2,
                 "review_topic": "원수급인 직접시공 의무비율",
-                "legal_criteria": "도급액 70억원 미만 시 20~50% 직접시공 (건산법 제28조의2)",
-                "submitted_value": f"{direct_ratio:.2f}% 잔여 공종 직접시공",
-                "status": "적정 (PASS)" if direct_ratio_pass else "미달 (FAIL)",
-                "action": "직접시공계획서 제출 및 감리원 승인 확인",
+                "legal_criteria": "직접시공 의무 적용 여부는 공사금액·공종·현행 기준 확인 필요",
+                "submitted_value": f"원도급액 대비 단순 차액 {residual_ratio:.2f}% (직접시공률 산정값 아님)",
+                "status": "산술값 확인 (REVIEW_REQUIRED)",
+                "action": "직접시공계획서와 적용 기준을 별도 확인",
             },
             {
                 "no": 3,
                 "review_topic": "하수급인 전문건설업 면허 등록",
-                "legal_criteria": "해당 공종 전문건설업 등록증 보유 (건산법 제9조)",
-                "submitted_value": license_registered,
-                "status": "적합 (PASS)",
-                "action": "전문건설업 등록증 사본 및 시공능력평가액 확인 완료",
+                "legal_criteria": "해당 공종 등록 요건과 현행 법령 확인 필요",
+                "submitted_value": license_registered or "문서에서 확인되지 않음",
+                "status": "기재 근거 발견 (REVIEW_REQUIRED)" if license_registered else "미확인 (REVIEW_REQUIRED)",
+                "action": "등록증 원본·유효기간·해당 업종을 별도 확인",
             },
             {
                 "no": 4,
                 "review_topic": "불법 재하도급(일괄/무단) 금지",
-                "legal_criteria": "하수급인의 타인 재하도급 원칙적 금지 (건산법 제29조)",
-                "submitted_value": "재하도급 계획 없음 (직접 노무 투입)",
-                "status": "적합 (PASS)",
-                "action": "현장 근로자 노무비 지급명세서 및 작업일보 상시 대조",
+                "legal_criteria": "재하도급 허용·금지 요건과 현행 법령 확인 필요",
+                "submitted_value": "재하도급 없음 기재" if has_resubcontract is False else ("재하도급 있음 기재" if has_resubcontract else "문서에서 확인되지 않음"),
+                "status": "위험 확인 (REVIEW_REQUIRED)" if has_resubcontract else "미확인/증빙필요 (REVIEW_REQUIRED)",
+                "action": "계약서·인력투입·대금지급 자료로 재하도급 여부 확인",
             },
         ]
 
-        overall_verdict = (
-            "하도급계약 적정 승인 (PASS)"
-            if sub_ratio_pass and direct_ratio_pass
-            else "하도급 적정성 정밀심사 요구 (REVIEW_REQUIRED)"
-        )
+        overall_verdict = "산술 선별 완료, 법정 적정성 최종 검토 필요 (REVIEW_REQUIRED)"
 
         # 4. Generate Word Document (.docx) & Markdown (.md)
         now = datetime.now()
@@ -147,7 +153,7 @@ class SubcontractAuditor:
             f"# 1. 하도급계약 적정성 종합 판정",
             f"- **원도급금액:** **{original_contract_amount:,.0f}원**",
             f"- **하도급금액:** **{subcontract_amount:,.0f}원**",
-            f"- **하도급 비율:** **{subcontract_ratio:.2f}%** (법정 기준: 82.0% 이상)",
+            f"- **하도급 비율:** **{subcontract_ratio:.2f}%** (82.0% 선별 기준, 적용 여부 별도 확인)",
             f"- **최종 검토결과:** **{overall_verdict}**\n",
             f"# 2. 법정 심사기준별 세부 검토 대조표",
             f"| No | 심사 항목 | 법적 근거 및 기준 | 시공사 제출 내용 | 판정 | 감리의견 및 조치사항 |",
@@ -192,9 +198,9 @@ _subcontract_auditor = SubcontractAuditor()
 
 def audit_subcontract_agreement(
     subcontract_excel_file: str,
-    contractor_name: str = "(주)대우건설",
-    subcontractor_name: str = "(주)삼우토건",
-    project_name: str = "삼우씨엠 신축공사 CM현장",
+    contractor_name: str = "미입력 시공사",
+    subcontractor_name: str = "미입력 하수급인",
+    project_name: str = "미입력 프로젝트",
 ) -> Dict[str, Any]:
     return _subcontract_auditor.audit_subcontract(
         subcontract_excel_file=subcontract_excel_file,

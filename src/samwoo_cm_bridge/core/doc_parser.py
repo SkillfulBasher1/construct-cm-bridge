@@ -8,7 +8,7 @@ Prevents directory traversal attacks and extracts structured Markdown + JSON met
 import os
 import zipfile
 import logging
-import xml.etree.ElementTree as ET
+from defusedxml import ElementTree as ET
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Union
 
@@ -36,18 +36,17 @@ class DocumentParser:
 
     def _validate_path(self, filename: str) -> Path:
         """Validates that the target file is strictly inside the secure sandbox directory."""
-        # Detect explicit directory traversal attempt
-        if ".." in filename or filename.startswith("/") or filename.startswith("\\") or (len(filename) > 1 and filename[1] == ":"):
-            target_path = (self.secure_dir / filename).resolve()
-            if not target_path.is_relative_to(self.secure_dir):
-                raise SecurityError(f"Access Denied: Path traversal detected for '{filename}'.")
+        if not isinstance(filename, str) or not filename.strip():
+            raise SecurityError("Access Denied: A non-empty basename is required.")
+        if filename != os.path.basename(filename) or "/" in filename or "\\" in filename:
+            raise SecurityError(f"Access Denied: Only a basename is allowed for '{filename}'.")
 
-        target_path = (self.secure_dir / os.path.basename(filename)).resolve()
+        target_path = (self.secure_dir / filename).resolve()
 
         if not target_path.is_relative_to(self.secure_dir):
             raise SecurityError(f"Access Denied: Path traversal detected for '{filename}'.")
 
-        if not target_path.exists():
+        if not target_path.is_file():
             raise FileNotFoundError(f"File '{filename}' not found in secure storage ({self.secure_dir}).")
 
         return target_path
@@ -67,23 +66,25 @@ class DocumentParser:
 
     def parse_document(self, filename: str, use_cache: bool = True) -> Dict[str, Any]:
         """Parses a local project file into structured Markdown and metadata with SHA-256 caching."""
+        file_path = self._validate_path(filename)
+        safe_name = file_path.name
+
         from .doc_cache_manager import DocumentCacheManager
         cache_mgr = DocumentCacheManager(self.secure_dir)
 
-        if use_cache and cache_mgr.is_cache_valid(filename):
-            cached = cache_mgr.get_cached_document(filename)
+        if use_cache and cache_mgr.is_cache_valid(safe_name):
+            cached = cache_mgr.get_cached_document(safe_name)
             if cached:
                 cached_data = cached.get("parsed_data", {})
                 cached_data["from_cache"] = True
                 cached_data["sha256"] = cached.get("sha256")
                 return cached_data
 
-        file_path = self._validate_path(filename)
         ext = file_path.suffix.lower()
 
         if ext == ".hwpx":
             res = self._parse_hwpx(file_path)
-        elif ext in [".xlsx", ".xls"]:
+        elif ext in [".xlsx", ".xlsm"]:
             res = self._parse_xlsx(file_path)
         elif ext in [".docx"]:
             res = self._parse_docx(file_path)
@@ -98,7 +99,7 @@ class DocumentParser:
 
         res["from_cache"] = False
         if use_cache:
-            cache_mgr.cache_document(filename, res, res.get("markdown"))
+            cache_mgr.cache_document(safe_name, res, res.get("markdown"))
 
         return res
 
@@ -208,7 +209,7 @@ class DocumentParser:
             logger.error(f"HWPX parse error: {e}")
             raise RuntimeError(f"Failed to parse HWPX file '{path.name}': {str(e)}")
 
-    def _extract_hwpx_table(self, tbl_elem: ET.Element) -> List[List[str]]:
+    def _extract_hwpx_table(self, tbl_elem: Any) -> List[List[str]]:
         """Helper to extract a 2D matrix from an HWPX hp:tbl element."""
         matrix: List[List[str]] = []
         for tr in tbl_elem.iter():
@@ -335,7 +336,7 @@ class DocumentParser:
                         chunks.append({
                             "chunk_id": f"TBL-{t_idx}-R{r_idx}C{c_idx}",
                             "source_type": "TABLE_CELL",
-                            "line_no": p_idx + r_idx,
+                            "line_no": len(paragraphs) + r_idx + 1,
                             "section_title": f"표 {t_idx}",
                             "table_coord": {"table": t_idx, "row": r_idx, "col": c_idx},
                             "text": cell,

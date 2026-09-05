@@ -16,12 +16,12 @@ def test_audit_excel_pay_application_tampering():
 
     assert res["status"] == "SUCCESS"
     assert res["audit_type"] == "PAY_APPLICATION_XLSX"
-    assert res["critical_count"] >= 2
-    assert "REJECT" in res["overall_verdict"] or "FAIL" in res["overall_verdict"]
+    assert res["critical_count"] >= 1
+    assert "REVISE_REQUIRED" in res["overall_verdict"]
 
     categories = [f["category"] for f in res["findings"]]
-    assert any("단가 임의 인상" in c for c in categories)
-    assert any("과대청구" in c or "수식" in c for c in categories)
+    assert any("단가 상승 변경" in c for c in categories)
+    assert any("불일치" in c for c in categories)
 
 
 def test_audit_text_revision_diff(tmp_path):

@@ -3,8 +3,7 @@
 Generates:
 1. Standard CM Inspection Request & Result Sheet (검측요청서 및 결과통보서)
 2. Non-Conformance Report & Corrective Action Order (부적합 시정지시서 - NCR)
-   - Disallowed defects, violated KCS standards, photographic evidence,
-     mandatory corrective actions, and re-inspection deadline.
+- User-entered defects, evidence descriptions, and a review-required action draft.
 """
 
 import os
@@ -17,8 +16,7 @@ from docx.shared import Inches, Pt, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_TABLE_ALIGNMENT
 
-from .doc_parser import SECURE_DATA_DIR
-from .docx_exporter import DocxExporter, set_cell_background, set_cell_margins
+from .docx_exporter import DocxExporter, choose_output_stem, set_cell_background, set_cell_margins
 
 
 class InspectionNCRGenerator:
@@ -26,7 +24,7 @@ class InspectionNCRGenerator:
 
     def __init__(self, exporter: Optional[DocxExporter] = None):
         self.exporter = exporter or DocxExporter()
-        self.output_dir = SECURE_DATA_DIR
+        self.output_dir = self.exporter.output_dir
 
     def generate_inspection_sheet(
         self,
@@ -34,44 +32,30 @@ class InspectionNCRGenerator:
         location: str,
         contractor_spec: str = "",
         inspection_items: Optional[List[Dict[str, str]]] = None,
-        project_name: str = "삼우씨엠 신축공사 CM현장",
-        inspector_name: str = "이감리 분야별 책임기술인",
+        project_name: str = "미입력 프로젝트",
+        inspector_name: str = "미입력 분야별 책임기술인",
     ) -> Dict[str, Any]:
         """Generates standard CM Inspection Request & Result Sheet."""
         now = datetime.now()
         date_str = now.strftime("%Y.%m.%d")
         doc_no = f"SWCM-INSP-{now.strftime('%Y%m%d')}-01"
 
-        # Default inspection checkpoints if not passed
-        items = inspection_items or [
-            {
-                "no": "1",
-                "item": "부재 규격 및 치수 일치성",
-                "standard": "설계도면 및 KCS 기준 만족",
-                "tolerance": "±5mm 이내",
-                "contractor_check": "적합 (PASS)",
-                "cm_verdict": "적합 (PASS)",
-            },
-            {
-                "no": "2",
-                "item": "체결부 볼트 토크치 및 용접 비드 상태",
-                "standard": "KCS 14 31 25 기준 소정의 조임력 확보",
-                "tolerance": "적정 토크치 100% 만족",
-                "contractor_check": "적합 (PASS)",
-                "cm_verdict": "적합 (PASS)",
-            },
-            {
-                "no": "3",
-                "item": "수직도/수평도 및 변위 발생 여부",
-                "standard": "허용오차(1/500) 이내 관리",
-                "tolerance": "최대 10mm 미만",
-                "contractor_check": "적합 (PASS)",
-                "cm_verdict": "적합 (PASS)",
-            },
-        ]
+        items = list(inspection_items or [])
 
         has_fail = any("부적합" in i.get("cm_verdict", "") or "FAIL" in i.get("cm_verdict", "") for i in items)
-        final_verdict = "검측 부적합 (FAIL)" if has_fail else "검측 승인 (PASS)"
+        all_pass = bool(items) and all(
+            "적합" in i.get("cm_verdict", "") or "PASS" in i.get("cm_verdict", "")
+            for i in items
+        )
+        if has_fail:
+            final_verdict = "검측 부적합 (FAIL)"
+            cm_opinion = "입력된 부적합 항목을 보완하고 재검측해야 합니다."
+        elif all_pass:
+            final_verdict = "입력 판정 전 항목 PASS (최종 승인 아님)"
+            cm_opinion = "입력된 모든 검측 항목이 PASS입니다. 원본 증빙과 승인권자 서명은 별도 확인해야 합니다."
+        else:
+            final_verdict = "검측 판정 대기 (REVIEW_REQUIRED)"
+            cm_opinion = "검측 항목과 감리원 판정이 입력되지 않아 승인할 수 없습니다."
 
         # Build Markdown content
         md_lines = [
@@ -81,7 +65,7 @@ class InspectionNCRGenerator:
             f"- **검측일자:** {date_str}",
             f"- **검측공종:** {work_type}",
             f"- **검측위치:** {location}",
-            f"- **시공사 사양:** {contractor_spec or '설계도서 준용'}",
+            f"- **시공사 사양:** {contractor_spec or '미입력'}",
             f"- **담당 감리원:** {inspector_name}\n",
             f"# 1. 세부 검측 체크리스트 및 판정 결과",
             f"| No | 검측 세부 항목 | 관리 기준 | 허용 오차 | 시공사 점검 | **감리원 판정** |",
@@ -96,7 +80,7 @@ class InspectionNCRGenerator:
         md_lines.extend([
             f"\n# 2. 종합 검측 판정 및 지시사항",
             f"- **최종 검측 결과:** **{final_verdict}**",
-            f"- **감리의견:** 상기 검측 항목에 대한 현장 실측 결과 설계도서 및 시방 기준을 충족하므로 후속 공정 진행을 승인함.",
+            f"- **감리의견:** {cm_opinion}",
         ])
 
         report_md = "\n".join(md_lines)
@@ -125,27 +109,28 @@ class InspectionNCRGenerator:
         self,
         issue_description: str,
         location: str,
-        defect_category: str = "시공품질 불량",
-        photo_attached: str = "현장 사진 첨부",
+        defect_category: str = "미분류",
+        photo_attached: str = "미첨부",
         corrective_deadline: str = "",
-        project_name: str = "삼우씨엠 신축공사 CM현장",
-        chief_cm_name: str = "김수석 책임건설사업관리기술인",
+        recipient: str = "미입력 시공사 현장소장",
+        project_name: str = "미입력 프로젝트",
+        chief_cm_name: str = "미입력 책임기술인",
     ) -> Dict[str, Any]:
         """Drafts formal Non-Conformance Report (부적합 시정지시서 - NCR)."""
         now = datetime.now()
         date_str = now.strftime("%Y년 %m월 %d일")
-        deadline_str = corrective_deadline or (now.strftime("%Y년 %m월 ") + str(now.day + 5) + "일")
+        deadline_str = corrective_deadline or "미입력"
         doc_no = f"SWCM-NCR-{now.strftime('%Y%m%d')}-01"
 
         md_content = f"""# 주식회사 삼우씨엠건축사사무소
-**부적합 시정지시서 (Non-Conformance Report: NCR)**
+**부적합 시정지시서 초안 (NCR DRAFT - 미승인)**
 
 ---
 - **관리번호:** {doc_no}
 - **발행일자:** {date_str}
-- **수　　신:** (주)대우건설 현장소장 (참조: 품질관리팀장, 공사팀장)
+- **수　　신:** {recipient}
 - **발　　신:** {project_name} 책임건설사업관리기술인 {chief_cm_name}
-- **부적합 유형:** **{defect_category}** (위반 기준: KCS 및 시공시방서)
+- **부적합 유형:** **{defect_category}** (적용 기준 원문 별도 확인)
 - **발생위치:** {location}
 
 ---
@@ -155,21 +140,23 @@ class InspectionNCRGenerator:
 
 ### 2. 현장 실측/사진 증빙 현황
 - **현장 증빙:** {photo_attached}
-- **확인된 결함 상태:** 설계도면 및 승인된 시공계획서의 품질 기준을 위배하여 구조 안전성 및 내구성에 위해가 우려됨.
+- **입력된 지적 내용:** {issue_description}
+- **판정 상태:** 적용 기준·현장 상태·사진 원본 확인 필요 (REVIEW_REQUIRED)
 
 ### 3. 감리단 시정 및 조치 지시사항
-1. 귀 사는 본 지적 구간에 대하여 즉시 후속 공정을 중단하고, 결함 원인 분석 및 **시정조치 계획서(재시공/보강 방안)**를 작성하여 제출할 것.
-2. 보강 조치 완료 후 감리원의 **입회 재검측(Re-inspection)**을 필히 득한 후 후속 작업을 재개할 것.
-3. 동일 부적합 사례가 재발하지 않도록 작업팀 대상 특별 품질교육을 실시하고 결과를 보고할 것.
+1. 책임기술인은 입력된 지적 내용과 적용 설계도서·시방서·현장 상태를 확인할 것.
+2. 부적합이 확인되면 후속공정 중지 범위, 시정조치 계획 및 재검측 절차를 확정할 것.
+3. 확인 결과와 승인권자의 서명 후 정식 NCR을 발행할 것.
 
 ### 4. 시정조치 완료 보고 기한
-- **이행 기한:** **{deadline_str}까지 (엄수)**
+- **이행 기한:** **{deadline_str}**
 
 ---
-**주식회사 삼우씨엠건축사사무소 책임건설사업관리기술인 (직인생략)**
+**초안 작성본 - 책임기술인 승인 서명 필요**
 """
-        output_docx = f"시정지시서_{doc_no}.docx"
-        output_md = f"시정지시서_{doc_no}.md"
+        output_stem = choose_output_stem(self.output_dir, f"시정지시서_{doc_no}")
+        output_docx = f"{output_stem}.docx"
+        output_md = f"{output_stem}.md"
         docx_path = self.output_dir / output_docx
         md_path = self.output_dir / output_md
 
@@ -186,7 +173,7 @@ class InspectionNCRGenerator:
         # Header Title
         h_p = doc.add_paragraph()
         h_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        h_run = h_p.add_run("부적합 시정지시서 (NCR)")
+        h_run = h_p.add_run("부적합 시정지시서 초안 (NCR DRAFT)")
         h_run.font.name = "맑은 고딕"
         h_run.font.size = Pt(18)
         h_run.font.bold = True
@@ -207,7 +194,7 @@ class InspectionNCRGenerator:
             ("관리번호", doc_no),
             ("발행일자", date_str),
             ("부적합 유형", f"{defect_category} (발생위치: {location})"),
-            ("시정기한", f"{deadline_str}까지"),
+            ("시정기한", deadline_str),
         ]
         for r_idx, (lbl, val) in enumerate(meta_data):
             c0 = meta_table.cell(r_idx, 0)
@@ -227,17 +214,17 @@ class InspectionNCRGenerator:
         p1_r.font.size = Pt(11)
 
         p2 = doc.add_paragraph()
-        p2_r = p2.add_run(f"2. 현장 증빙 및 결함 상태\n   - 증빙: {photo_attached}\n   - 기준 위반: 설계도서 및 KCS 품질관리기준 미달")
+        p2_r = p2.add_run(f"2. 현장 증빙 및 결함 상태\n   - 증빙: {photo_attached}\n   - 적용 기준: 승인 설계도서·시방서 원문 별도 확인")
         p2_r.font.size = Pt(11)
 
         p3 = doc.add_paragraph()
-        p3_r = p3.add_run("3. 감리단 시정 및 조치 지시사항\n   가. 지적 구간 후속 작업 즉시 중단 및 안전조치 시행\n   나. 원인 분석 및 보강/재시공 계획서 제출\n   다. 조치 완료 후 감리원 입회 재검측 득할 것")
+        p3_r = p3.add_run("3. 확인 및 승인 절차\n   가. 입력 지적사항과 원본 증빙 확인\n   나. 적용 설계도서·시방서와 대조\n   다. 책임기술인 승인 후 정식 NCR 발행")
         p3_r.font.size = Pt(11)
 
         doc.add_paragraph()
         sig_p = doc.add_paragraph()
         sig_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        sig_run = sig_p.add_run(f"주식회사 삼우씨엠건축사사무소\n책임건설사업관리기술인 {chief_cm_name} (직인생략)")
+        sig_run = sig_p.add_run(f"초안 검토자: {chief_cm_name}\n책임기술인 승인 서명 필요")
         sig_run.font.name = "맑은 고딕"
         sig_run.font.size = Pt(12)
         sig_run.font.bold = True
@@ -251,6 +238,8 @@ class InspectionNCRGenerator:
             "defect_category": defect_category,
             "location": location,
             "deadline": deadline_str,
+            "recipient": recipient,
+            "evidence_status": "REVIEW_REQUIRED",
             "docx_path": str(docx_path),
             "md_path": str(md_path),
         }
@@ -277,9 +266,10 @@ def generate_inspection_sheet(
 def draft_ncr_correction_order(
     issue_description: str,
     location: str,
-    defect_category: str = "시공품질 불량",
-    photo_attached: str = "현장 사진 첨부",
+    defect_category: str = "미분류",
+    photo_attached: str = "미첨부",
     corrective_deadline: str = "",
+    recipient: str = "미입력 시공사 현장소장",
 ) -> Dict[str, Any]:
     return _inspection_ncr_gen.draft_ncr_order(
         issue_description=issue_description,
@@ -287,4 +277,5 @@ def draft_ncr_correction_order(
         defect_category=defect_category,
         photo_attached=photo_attached,
         corrective_deadline=corrective_deadline,
+        recipient=recipient,
     )

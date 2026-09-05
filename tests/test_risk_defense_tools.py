@@ -46,7 +46,7 @@ def test_fire_hazard_no_conflict():
     res = check_concurrent_work_fire_hazard(tasks)
     assert res["status"] == "NORMAL"
     assert res["conflicts_count"] == 0
-    assert "충돌 없음" in res["overall_verdict"] or "PASS" in res["overall_verdict"]
+    assert "미검출" in res["overall_verdict"]
 
 
 def test_video_record_manager():
@@ -85,7 +85,7 @@ def test_weather_stop_work_trigger_rain_and_wind():
         planned_work="지하 2층 바닥 매트 콘크리트 타설 및 타워크레인 갱폼 양중",
         temp_c=21.0,
     )
-    assert res["status"] == "STOP_ORDER_ISSUED"
+    assert res["status"] == "STOP_REVIEW_REQUIRED"
     assert res["stop_items_count"] >= 2
     assert "작업중지" in res["overall_verdict"]
     assert any("우천" in item["category"] or "타설" in item["category"] for item in res["stop_items"])
@@ -103,4 +103,4 @@ def test_weather_normal_pass():
     )
     assert res["status"] == "NORMAL"
     assert res["stop_items_count"] == 0
-    assert "정상" in res["overall_verdict"] or "PASS" in res["overall_verdict"]
+    assert "미검출" in res["overall_verdict"]

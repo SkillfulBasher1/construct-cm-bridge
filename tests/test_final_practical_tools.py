@@ -54,6 +54,7 @@ def test_ncr_action_sheet_builder():
     )
     assert res["status"] == "SUCCESS"
     assert "SWCM-ACT-" in res["doc_no"]
+    assert "REVIEW_REQUIRED" in res["verification_status"]
     assert os.path.exists(res["docx_path"])
     assert os.path.exists(res["md_path"])
 
@@ -66,7 +67,7 @@ def test_subcontract_auditor():
     )
     assert res["status"] == "SUCCESS"
     assert res["subcontract_ratio_pct"] >= 82.0
-    assert "적정" in res["overall_verdict"] or "PASS" in res["overall_verdict"]
+    assert "REVIEW_REQUIRED" in res["overall_verdict"]
     assert len(res["review_matrix"]) >= 3
     assert os.path.exists(res["docx_path"])
     assert os.path.exists(res["md_path"])
@@ -78,7 +79,8 @@ def test_cm_final_report_assembler():
         report_type="준공 감리완료보고서",
     )
     assert res["status"] == "SUCCESS"
-    assert res["final_progress_pct"] == 100.0
+    assert res["final_progress_pct"] is None
+    assert res["final_verdict"] == "REVIEW_REQUIRED"
     assert res["scanned_artifacts_count"] >= 10
     assert os.path.exists(res["docx_path"])
     assert os.path.exists(res["md_path"])

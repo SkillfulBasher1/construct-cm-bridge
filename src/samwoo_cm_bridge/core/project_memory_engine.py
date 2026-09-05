@@ -11,7 +11,6 @@ import os
 import re
 import sqlite3
 import logging
-from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
 
@@ -26,14 +25,15 @@ class ProjectMemoryEngine:
     """Manages project context memory, directives, and action items in SQLite."""
 
     def __init__(self, db_path: Optional[Path] = None, parser: Optional[DocumentParser] = None):
-        self.db_path = db_path or DB_PATH
         self.parser = parser or DocumentParser()
+        self.db_path = Path(db_path).resolve() if db_path else self.parser.secure_dir / "project_memory.db"
         self._init_db()
 
     def _init_db(self):
         """Initializes database schema if not present."""
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         with sqlite3.connect(self.db_path) as conn:
+            conn.execute("PRAGMA foreign_keys = ON")
             cursor = conn.cursor()
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS project_instructions (
@@ -73,22 +73,22 @@ class ProjectMemoryEngine:
 
         # 1. Extract metadata via regex
         doc_no_m = re.search(r'(?:문서번호|문서\s*No|번호)\s*[:=~]?\s*([A-Za-z0-9-_]+)', text)
-        doc_no = doc_no_m.group(1).strip() if doc_no_m else f"MEMO-{datetime.now().strftime('%Y%m%d%H%M')}"
+        doc_no = doc_no_m.group(1).strip() if doc_no_m else "미확인"
 
         date_m = re.search(r'(?:시행일자|발행일자|일자|Date)\s*[:=~]?\s*([0-9]{4}[.-][0-9]{1,2}[.-][0-9]{1,2})', text)
-        doc_date = date_m.group(1).strip() if date_m else datetime.now().strftime("%Y.%m.%d")
+        doc_date = date_m.group(1).strip() if date_m else "미확인"
 
         issuer_m = re.search(r'(?:발신|발신처|시행청|발주처)\s*[:=~]?\s*([^\n|]+)', text)
-        issuer = issuer_m.group(1).strip() if issuer_m else "발주처 (발신)"
+        issuer = issuer_m.group(1).strip() if issuer_m else "미확인"
 
         recipient_m = re.search(r'(?:수신|수신처)\s*[:=~]?\s*([^\n|]+)', text)
-        recipient = recipient_m.group(1).strip() if recipient_m else "건설사업관리단"
+        recipient = recipient_m.group(1).strip() if recipient_m else "미확인"
 
         subject_m = re.search(r'(?:제목|건명|Subject)\s*[:=~]?\s*([^\n|]+)', text)
         subject = subject_m.group(1).strip() if subject_m else parsed.get("filename", "")
 
         deadline_m = re.search(r'(?:조치기한|적용기한|제출기한|기한)\s*[:=~]?\s*([0-9]{4}[.-년 ]*[0-9]{1,2}[.-월 ]*[0-9]{1,2}[일]?)', text)
-        deadline = deadline_m.group(1).strip() if deadline_m else "별도 지정시까지"
+        deadline = deadline_m.group(1).strip() if deadline_m else "미확인"
 
         # Determine discipline
         discipline = "토목/가설" if any(k in text for k in ["토목", "흙막이", "버팀보", "굴착", "앵커"]) else (
@@ -110,13 +110,27 @@ class ProjectMemoryEngine:
 
         # Store in SQLite
         with sqlite3.connect(self.db_path) as conn:
+            conn.execute("PRAGMA foreign_keys = ON")
             cursor = conn.cursor()
             cursor.execute("""
-                INSERT OR REPLACE INTO project_instructions
+                INSERT INTO project_instructions
                 (filename, doc_no, doc_date, issuer, recipient, subject, summary, discipline, deadline, status, raw_text)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', ?)
+                ON CONFLICT(filename) DO UPDATE SET
+                    doc_no = excluded.doc_no,
+                    doc_date = excluded.doc_date,
+                    issuer = excluded.issuer,
+                    recipient = excluded.recipient,
+                    subject = excluded.subject,
+                    summary = excluded.summary,
+                    discipline = excluded.discipline,
+                    deadline = excluded.deadline,
+                    status = 'PENDING',
+                    raw_text = excluded.raw_text,
+                    indexed_at = CURRENT_TIMESTAMP
             """, (filename, doc_no, doc_date, issuer, recipient, subject, summary, discipline, deadline, text))
-            inst_id = cursor.lastrowid
+            cursor.execute("SELECT id FROM project_instructions WHERE filename = ?", (filename,))
+            inst_id = cursor.fetchone()[0]
 
             # Extract specific action items (from table or bullet points)
             cursor.execute("DELETE FROM action_items WHERE instruction_id = ?", (inst_id,))
@@ -147,6 +161,14 @@ class ProjectMemoryEngine:
 
     def search_memory(self, query: str, status_filter: Optional[str] = None) -> Dict[str, Any]:
         """Searches past instructions, meeting minutes, and project directives using token matching."""
+        if not isinstance(query, str) or not query.strip():
+            return {
+                "status": "ERROR",
+                "query": query,
+                "total_found": 0,
+                "results": [],
+                "error": "검색어는 비어 있을 수 없습니다.",
+            }
         tokens = [t.strip() for t in query.strip().split() if len(t.strip()) >= 2]
         if not tokens:
             tokens = [query.strip()]

@@ -16,7 +16,7 @@ from typing import Dict, Any, List, Optional, Tuple, Union
 import openpyxl
 import pdfplumber
 
-from .doc_parser import DocumentParser, SECURE_DATA_DIR
+from .doc_parser import DocumentParser
 from .docx_exporter import DocxExporter
 
 logger = logging.getLogger(__name__)
@@ -31,14 +31,14 @@ class EquipmentQuantityAuditor:
         exporter: Optional[DocxExporter] = None,
     ):
         self.parser = parser or DocumentParser()
-        self.exporter = exporter or DocxExporter()
+        self.exporter = exporter or DocxExporter(self.parser.secure_dir)
         self.secure_dir = self.parser.secure_dir
 
     def extract_pdf_equipment_tables(self, pdf_file: str) -> List[Dict[str, Any]]:
         """Extracts equipment schedule table items from a PDF drawing."""
-        pdf_path = (self.secure_dir / os.path.basename(pdf_file)).resolve()
-        if not pdf_path.exists():
-            raise FileNotFoundError(f"Drawing PDF file '{pdf_file}' not found in {self.secure_dir}")
+        pdf_path = self.parser._validate_path(pdf_file)
+        if pdf_path.suffix.lower() != ".pdf":
+            raise ValueError("도면 입력은 PDF 파일이어야 합니다.")
 
         items: List[Dict[str, Any]] = []
 
@@ -93,46 +93,16 @@ class EquipmentQuantityAuditor:
                             })
         except Exception as e:
             logger.error(f"Failed to parse PDF tables from {pdf_file}: {e}")
+            raise RuntimeError(f"PDF 장비표 파싱에 실패했습니다: {e}") from e
 
-        # Fallback if no tables extracted
         if not items:
-            items = [
-                {
-                    "equipment_name": "옥내소화전 주펌프",
-                    "raw_spec": "700 L/min, 72m, 15kW",
-                    "flow": "700 L/min",
-                    "head": "72m",
-                    "power": "15kW",
-                    "quantity": 1,
-                    "source_anchor": f"{pdf_path.name} [Page 1 Table 1 Row 2]",
-                },
-                {
-                    "equipment_name": "옥내소화전 충압펌프",
-                    "raw_spec": "60 L/min, 80m, 3.7kW",
-                    "flow": "60 L/min",
-                    "head": "80m",
-                    "power": "3.7kW",
-                    "quantity": 1,
-                    "source_anchor": f"{pdf_path.name} [Page 1 Table 1 Row 3]",
-                },
-                {
-                    "equipment_name": "소방용 소화수조",
-                    "raw_spec": "15 m3 SMC 패널형",
-                    "flow": "15 m3",
-                    "head": "-",
-                    "power": "-",
-                    "quantity": 1,
-                    "source_anchor": f"{pdf_path.name} [Page 1 Table 1 Row 4]",
-                },
-            ]
+            raise ValueError(f"'{pdf_file}'에서 검증 가능한 장비 일람표를 추출하지 못했습니다.")
 
         return items
 
     def parse_excel_boq_items(self, boq_file: str) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
         """Parses BOQ (수량산출서) Excel lines and audits arithmetic formulas (Qty * UnitPrice == Amount)."""
-        boq_path = (self.secure_dir / os.path.basename(boq_file)).resolve()
-        if not boq_path.exists():
-            raise FileNotFoundError(f"BOQ file '{boq_file}' not found in {self.secure_dir}")
+        boq_path = self.parser._validate_path(boq_file)
 
         wb = openpyxl.load_workbook(boq_path, data_only=True)
         items: List[Dict[str, Any]] = []
@@ -221,9 +191,7 @@ class EquipmentQuantityAuditor:
 
     def parse_excel_calculation_items(self, calc_file: str) -> List[Dict[str, Any]]:
         """Parses Calculation Sheet (계산서) and extracts design specs and parameters."""
-        calc_path = (self.secure_dir / os.path.basename(calc_file)).resolve()
-        if not calc_path.exists():
-            raise FileNotFoundError(f"Calculation file '{calc_file}' not found in {self.secure_dir}")
+        calc_path = self.parser._validate_path(calc_file)
 
         wb = openpyxl.load_workbook(calc_path, data_only=True)
         items: List[Dict[str, Any]] = []
@@ -252,8 +220,8 @@ class EquipmentQuantityAuditor:
         calc_file: str,
         boq_file: str,
         drawing_pdf_file: str,
-        project_name: str = "삼우씨엠 신축공사 CM현장",
-        chief_cm_name: str = "김수석 책임건설사업관리기술인",
+        project_name: str = "미입력 프로젝트",
+        chief_cm_name: str = "미입력 책임기술인",
     ) -> Dict[str, Any]:
         """Cross-audits Calculation Sheet vs BOQ vs Drawing PDF."""
         # 1. Parse all 3 sources
@@ -298,12 +266,12 @@ class EquipmentQuantityAuditor:
                     best_calc = c
 
             matched_calc = best_calc if best_c_score > 0 else None
-            c_spec = matched_calc["raw_text"] if matched_calc else "계산서 명시"
+            c_spec = matched_calc["raw_text"] if matched_calc else "계산서 근거 없음"
             c_anchor = matched_calc["source_anchor"] if matched_calc else "-"
 
             # Verify Spec & Quantity match
             issues = []
-            status = "일치 (PASS)"
+            status = "근거 발견 (REVIEW_REQUIRED)"
 
             if not matched_boq:
                 status = "불일치 (DISCREPANCY)"
@@ -324,7 +292,11 @@ class EquipmentQuantityAuditor:
                         status = "불일치 (DISCREPANCY)"
                         issues.append(f"용량/토출량 불일치: 도면 {f_d} vs 산출서 {f_b}")
 
-            if status != "일치 (PASS)":
+            if not matched_calc:
+                status = "불일치 (DISCREPANCY)"
+                issues.append("도면 장비에 대응하는 계산서 근거를 확인하지 못함")
+
+            if "DISCREPANCY" in status:
                 discrepancy_count += 1
 
             match_matrix.append({
@@ -333,15 +305,15 @@ class EquipmentQuantityAuditor:
                 "boq_spec_qty": f"{b_spec} ({int(b_qty)}대)" if matched_boq else "누락",
                 "calc_ref": c_spec[:30] + "..." if len(c_spec) > 30 else c_spec,
                 "status": status,
-                "discrepancy_details": "; ".join(issues) if issues else "규격 및 수량 3자 일치",
-                "source_anchors": f"도면: {d_anchor} | 산출서: {b_anchor}",
+                "discrepancy_details": "; ".join(issues) if issues else "자동 추출 범위 내 대응 근거 발견, 원본 수동 대조 필요",
+                "source_anchors": f"도면: {d_anchor} | 산출서: {b_anchor} | 계산서: {c_anchor}",
             })
 
         total_issues = discrepancy_count + len(boq_errors)
         overall_verdict = (
             "수치 불일치 및 산출 오류 보완 지시 (DISCREPANCY_DETECTED)"
             if total_issues > 0
-            else "계산서-산출서-도면 3자 수치 완전 일치 (PASS)"
+            else "자동 추출 범위 내 대응 근거 발견 (REVIEW_REQUIRED)"
         )
 
         # 3. Generate Word Document (.docx) & Markdown (.md)
@@ -367,7 +339,7 @@ class EquipmentQuantityAuditor:
         ]
 
         for idx, m in enumerate(match_matrix, 1):
-            sym = "✔" if "PASS" in m["status"] else "✖"
+            sym = "✖" if "DISCREPANCY" in m["status"] else "⚠️"
             md_lines.append(
                 f"| {idx} | {m['equipment_name']} | {m['drawing_spec_qty']} | {m['boq_spec_qty']} | {m['calc_ref']} | {sym} **{m['status']}** | {m['discrepancy_details']} | `{m['source_anchors']}` |"
             )
@@ -431,7 +403,7 @@ def audit_calculation_quantity_drawing_match(
     calc_file: str,
     boq_file: str,
     drawing_pdf_file: str,
-    project_name: str = "삼우씨엠 신축공사 CM현장",
+    project_name: str = "미입력 프로젝트",
 ) -> Dict[str, Any]:
     return _auditor.audit_3way_match(
         calc_file=calc_file,

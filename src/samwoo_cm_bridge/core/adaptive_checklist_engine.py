@@ -5,10 +5,8 @@ Dynamically generates tailored 15~20 inspection checklist items based on:
 2. Site Conditions (도심지 인접, 고지하수위/연약지반, 암반파쇄, 동절기/서중 등)
 3. Owner Specifications (특기시방서 HWPX/DOCX)
 
-Automatically inspects contractor's construction plan (시공계획서) and assigns:
-- Status: [PASS (적합) / MODIFY (보완필요) / NA (해당없음)]
-- Compliance Score (%)
-- Matched Evidence Excerpts
+Scans contractor plans for candidate evidence. Keyword matches are not approvals,
+and embedded checklist thresholds must be checked against current project criteria.
 """
 
 import re
@@ -32,52 +30,57 @@ class AdaptiveChecklistEngine:
         """Initializes the master checklist criteria database."""
         self.work_type_bank = {
             "토공/가설": [
-                {"id": "TC-01", "item": "지하 10m 이상 굴착 시 건진법 안전관리계획 수립 및 승인 여부", "req": "건진법 제62조 안전관리계획서 제출 및 인허가청 승인", "keywords": ["안전관리계획", "건진법", "굴착", "승인"]},
-                {"id": "TC-02", "item": "가설 흙막이 버팀보(Strut) 좌굴 및 축력 안전율(Fs >= 1.25) 확보", "req": "KDS 21 30 00 기준 Fs 1.25 이상 구조계산 반영", "keywords": ["버팀보", "Strut", "1.25", "안전율", "좌굴"]},
+                {"id": "TC-01", "item": "굴착 안전관리계획의 적용·제출·승인 요건 확인", "req": "현행 적용 법령, 인허가조건 및 승인 안전관리계획 원문 확인", "keywords": ["안전관리계획", "굴착", "제출", "승인"]},
+                {"id": "TC-02", "item": "가설 흙막이 버팀보(Strut) 좌굴 및 축력 안전율 검토", "req": "승인 구조계산서와 현행 적용 기준의 안전율·하중조합 확인", "keywords": ["버팀보", "Strut", "안전율", "좌굴"]},
                 {"id": "TC-03", "item": "엄지말뚝(H-Pile) 근입깊이 및 천공홀 그라우팅 충진성", "req": "설계 근입깊이 확보 및 토사 유실 방지 그라우팅", "keywords": ["엄지말뚝", "H-Pile", "근입", "천공", "그라우팅"]},
-                {"id": "TC-04", "item": "지반 앵커(Ground Anchor) 인장시험 및 인장력 안전율(Fs >= 1.5)", "req": "인장력 확인시험(전체 공수의 5% 이상) 및 긴장력 관리", "keywords": ["앵커", "인장시험", "긴장", "안전율", "1.5"]},
+                {"id": "TC-04", "item": "지반 앵커(Ground Anchor) 인장시험 및 인장력 안전율 검토", "req": "승인 설계도서·시방서의 시험빈도, 시험하중 및 긴장력 관리기준 확인", "keywords": ["앵커", "인장시험", "긴장", "안전율"]},
                 {"id": "TC-05", "item": "토사 굴착 단계별 사면 구배 및 버팀보 선행 설치 절차", "req": "과굴착 금지 및 1단 굴착 후 즉시 지보공 설치", "keywords": ["굴착", "과굴착", "단계별", "사면", "선행"]},
-                {"id": "TC-06", "item": "가설 강재 품질 규격 및 KS 정품 밀시트(Mill Sheet) 제출", "req": "KS D 3503(SS275) / KS D 3515(SM355) 자재검수", "keywords": ["강재", "KS", "SS275", "SM355", "밀시트", "성적서"]},
+                {"id": "TC-06", "item": "가설 강재 품질 규격 및 밀시트(Mill Sheet) 제출", "req": "승인 설계도서의 강종·규격과 자재 성적서 원문 대조", "keywords": ["강재", "강종", "규격", "밀시트", "성적서"]},
             ],
             "골조/콘크리트": [
-                {"id": "RC-01", "item": "거푸집 및 동바리 구조안전성 계산서 및 조립도 검토", "req": "KDS 21 50 00 기준 동바리 허용응력 및 안전율 확보", "keywords": ["동바리", "거푸집", "구조계산", "조립도", "안전율"]},
-                {"id": "RC-02", "item": "철근 배근 간격, 이음길이 및 피복두께 유지 계획", "req": "KDS 14 20 50 기준 이음/정착길이 및 스페이서 배치", "keywords": ["철근", "배근", "피복두께", "이음길이", "스페이서"]},
+                {"id": "RC-01", "item": "거푸집 및 동바리 구조안전성 계산서 및 조립도 검토", "req": "승인 구조계산서와 현행 적용 기준의 하중·허용응력·안전율 대조", "keywords": ["동바리", "거푸집", "구조계산", "조립도", "안전율"]},
+                {"id": "RC-02", "item": "철근 배근 간격, 이음길이 및 피복두께 유지 계획", "req": "승인 구조도와 시방서의 이음·정착·피복 기준 및 스페이서 배치 확인", "keywords": ["철근", "배근", "피복두께", "이음길이", "스페이서"]},
                 {"id": "RC-03", "item": "레미콘 공장 배합설계 승인 및 슬럼프/공기량/염화물 검사", "req": "공장 배합표 승인 및 반입 차량별 품질검사(슬럼프, 염화물)", "keywords": ["배합설계", "슬럼프", "공기량", "염화물", "품질검사"]},
-                {"id": "RC-04", "item": "콘크리트 타설 구획 및 이어치기(콜드조인트 방지) 계획", "req": "타설 속도 및 이어치기 시간 한도(외기 25℃ 이상 2.0시간 이내)", "keywords": ["이어치기", "콜드조인트", "타설구획", "타설속도"]},
-                {"id": "RC-05", "item": "타설 후 수밀/습윤 보온 양생 및 거푸집 탈형 압축강도 관리", "req": "탈형 기준 압축강도(5MPa / 14MPa) 확보 시까지 양생", "keywords": ["양생", "습윤", "탈형", "압축강도", "강도확인"]},
+                {"id": "RC-04", "item": "콘크리트 타설 구획 및 이어치기(콜드조인트 방지) 계획", "req": "승인 시공계획의 타설 속도·구획과 기온별 이어치기 시간 한도 확인", "keywords": ["이어치기", "콜드조인트", "타설구획", "타설속도"]},
+                {"id": "RC-05", "item": "타설 후 습윤·보온 양생 및 거푸집 탈형 압축강도 관리", "req": "승인 시방서의 양생조건과 부위별 탈형강도 기준 확인", "keywords": ["양생", "습윤", "탈형", "압축강도", "강도확인"]},
             ],
             "기계/소방": [
-                {"id": "MEP-01", "item": "옥내소화전설비 소화수조 법적/특기시방 유효수량 확보", "req": "소방시설법 및 KCS 31 10 00 기준 V >= N x 2.6 m³ 확보", "keywords": ["소화수조", "유효수량", "저수량", "2.6", "수원"]},
-                {"id": "MEP-02", "item": "가압송수펌프 정격토출압력 및 토출량 선정 적정성", "req": "최상층 방수압력 0.17~0.70 MPa 및 정격 토출량 확보", "keywords": ["가압송수장치", "소화펌프", "방수압력", "토출량", "양정"]},
-                {"id": "MEP-03", "item": "배관 수압시험(1.5배 이상 가압 2시간 유지) 및 누수 방지 계획", "req": "최고사용압력의 1.5배 이상 수압시험 및 감리 입회", "keywords": ["수압시험", "내압시험", "누수", "가압", "기밀"]},
-                {"id": "MEP-04", "item": "방화구획 관통부 내화채움구조 시공 및 성적서 검토", "req": "건축법 제49조 및 내화채움 인증 자재 적용", "keywords": ["방화구획", "내화채움", "관통부", "시험성적서"]},
+                {"id": "MEP-01", "item": "옥내소화전설비 소화수조 유효수량 검토", "req": "현행 적용 법령, 소방 설계도서 및 특기시방의 유효수량 산식 확인", "keywords": ["소화수조", "유효수량", "저수량", "수원"]},
+                {"id": "MEP-02", "item": "가압송수펌프 정격토출압력 및 토출량 선정 검토", "req": "승인 소방 설계도서의 방수압력·토출량·양정과 장비 성능곡선 대조", "keywords": ["가압송수장치", "소화펌프", "방수압력", "토출량", "양정"]},
+                {"id": "MEP-03", "item": "배관 수압시험 및 누수 방지 계획", "req": "승인 시방서의 시험압력·유지시간·입회 및 합격 기준 확인", "keywords": ["수압시험", "내압시험", "누수", "가압", "기밀"]},
+                {"id": "MEP-04", "item": "방화구획 관통부 내화채움구조 시공 및 성적서 검토", "req": "현행 적용 법령과 승인도서의 내화채움 인정·성적서 요건 확인", "keywords": ["방화구획", "내화채움", "관통부", "시험성적서"]},
             ],
             "전기/통신": [
-                {"id": "EL-01", "item": "수전설비 인입구로부터 최종 부하 간 전압강하율(<= 3.0%) 만족", "req": "KEC 232 규격 조명/동력 간선 전압강하 기준 준수", "keywords": ["전압강하", "KEC", "3.0%", "간선", "케이블"]},
-                {"id": "EL-02", "item": "변압기 용량 산정 시 수용률, 부하율 및 여유율(15% 이상) 검토", "req": "수용 부하 집계 및 피크 부하 대비 적정 여유율 확보", "keywords": ["변압기", "수용률", "부하율", "용량", "여유율"]},
+                {"id": "EL-01", "item": "수전설비 인입구부터 최종 부하까지 전압강하율 검토", "req": "현행 전기설비 기준과 승인 설계도서의 회로별 허용 전압강하율 확인", "keywords": ["전압강하", "KEC", "간선", "케이블"]},
+                {"id": "EL-02", "item": "변압기 용량 산정 시 수용률, 부하율 및 여유율 검토", "req": "승인 부하표의 수용률·부하율·피크 부하 및 설계 여유율 대조", "keywords": ["변압기", "수용률", "부하율", "용량", "여유율"]},
                 {"id": "EL-03", "item": "통합 접지공사 및 접지저항값 기준 만족 여부", "req": "KEC 규정 기준 공통/통합접지 전위간섭 방지 및 등전위본딩", "keywords": ["접지", "접지저항", "등전위본딩", "접지극"]},
+            ],
+            "마감/방수": [
+                {"id": "FIN-01", "item": "방수 바탕면 처리와 공정별 품질관리 계획", "req": "승인 설계도서와 특기시방서의 방수 공법 및 바탕면 기준 확인", "keywords": ["방수", "바탕면", "품질관리", "시방"]},
+                {"id": "FIN-02", "item": "방수층 두께·겹침·단부 상세 및 담수시험 계획", "req": "승인 상세도와 제품 시방에 따른 시공 및 시험 계획 확인", "keywords": ["두께", "겹침", "단부", "담수시험"]},
+                {"id": "FIN-03", "item": "마감재 시험성적서·색상·시공 견본 승인 계획", "req": "자재 반입 전 승인 자료와 시공 견본 확인", "keywords": ["시험성적서", "색상", "견본", "승인"]},
             ],
         }
 
         self.site_condition_modifiers = {
             "도심지": [
-                {"id": "SITE-URB-01", "item": "[도심지 특화] 인접 건물 경사계(Tilt) 및 지표 침하계 계측(주 2회 이상)", "req": "인접 구조물 변위 허용기준(1/500) 이내 관리 및 일일 보고", "keywords": ["인접건물", "경사계", "침하계", "계측", "주2회", "변위"]},
-                {"id": "SITE-URB-02", "item": "[도심지 특화] 굴착/항타 공사 소음(65dB 이하) 및 진동(0.2cm/s 이하) 방지 대책", "req": "방음벽 설치, 저소음 장비 적용 및 특정공사 사전신고", "keywords": ["소음", "진동", "방음벽", "저소음", "소음진동"]},
-                {"id": "SITE-URB-03", "item": "[도심지 특화] 보행자 안전통로, 낙하물 방지망 및 교통정리원 배치 계획", "req": "현장 진출입로 신호수 2인 이상 상시 배치 및 보행로 분리", "keywords": ["보행자", "안전통로", "신호수", "낙하물", "교통정리"]},
+                {"id": "SITE-URB-01", "item": "[도심지 특화] 인접 건물 경사계 및 지표 침하계 계측 계획", "req": "승인 계측계획의 빈도·관리기준·보고 및 비상조치 기준 확인", "keywords": ["인접건물", "경사계", "침하계", "계측", "변위"]},
+                {"id": "SITE-URB-02", "item": "[도심지 특화] 굴착·항타 공사 소음·진동 방지 대책", "req": "사업장 위치·시간대별 적용 기준, 신고조건 및 승인 관리기준 확인", "keywords": ["소음", "진동", "방음벽", "저소음", "소음진동"]},
+                {"id": "SITE-URB-03", "item": "[도심지 특화] 보행자 안전통로, 낙하물 방지망 및 교통정리원 배치 계획", "req": "승인 교통처리·안전관리계획의 인원·위치·동선 분리 기준 확인", "keywords": ["보행자", "안전통로", "신호수", "낙하물", "교통정리"]},
             ],
             "지하수위": [
-                {"id": "SITE-GW-01", "item": "[지하수 특화] 흙막이 배면 차수 그라우팅(JSP/SGR) 연속성 및 차수성 검증", "req": "투수계수 k <= 1.0x10^-5 cm/s 확보 및 확인시추", "keywords": ["차수", "그라우팅", "JSP", "SGR", "투수계수", "지하수"]},
-                {"id": "SITE-GW-02", "item": "[지하수 특화] 굴착 저면 히빙(Heaving) 및 보일링(Boiling Fs >= 1.5) 검토", "req": "수두차에 의한 분사현상 방지 및 웰포인트/디프웰 양수 계획", "keywords": ["히빙", "보일링", "안전율", "디프웰", "웰포인트", "양수"]},
+                {"id": "SITE-GW-01", "item": "[지하수 특화] 흙막이 배면 차수 그라우팅 연속성 및 차수성 검증", "req": "승인 설계도서의 투수계수·시공범위·품질확인 방법 대조", "keywords": ["차수", "그라우팅", "JSP", "SGR", "투수계수", "지하수"]},
+                {"id": "SITE-GW-02", "item": "[지하수 특화] 굴착 저면 히빙 및 보일링 안전성 검토", "req": "승인 구조·지반 계산서의 수두조건·안전율과 양수계획 대조", "keywords": ["히빙", "보일링", "안전율", "디프웰", "웰포인트", "양수"]},
                 {"id": "SITE-GW-03", "item": "[지하수 특화] 지하수위계(Water Level Meter) 매일 자동계측 및 일일 수위 보고", "req": "수위 급변 시 즉시 공사 중단 및 비상 차수대책 가동", "keywords": ["수위계", "지하수위", "일일계측", "수위변화"]},
             ],
             "암반": [
-                {"id": "SITE-RK-01", "item": "[암반 특화] 무진동/미진동 암파쇄 공법 적용 및 발파진동 제어 계획", "req": "보안물건 이격거리별 발파진동 규제기준(0.3 kine 이하) 준수", "keywords": ["암반", "암파쇄", "무진동", "발파", "진동제어"]},
+                {"id": "SITE-RK-01", "item": "[암반 특화] 암파쇄 공법 적용 및 발파진동 제어 계획", "req": "보안물건·이격거리·인허가조건별 승인 진동 관리기준 확인", "keywords": ["암반", "암파쇄", "무진동", "발파", "진동제어"]},
             ],
             "동절기": [
-                {"id": "SITE-COLD-01", "item": "[동절기 특화] 한중 콘크리트 보온양생(방풍막, 열풍기) 및 초기동해 방지 계획", "req": "타설 후 압축강도 5MPa 발현 시까지 5℃ 이상 보온 유지", "keywords": ["한중", "동절기", "보온", "열풍기", "초기동해", "온도기록"]},
+                {"id": "SITE-COLD-01", "item": "[동절기 특화] 한중 콘크리트 보온양생 및 초기동해 방지 계획", "req": "승인 시방서의 배합·타설·보온 온도와 양생 종료강도 기준 확인", "keywords": ["한중", "동절기", "보온", "열풍기", "초기동해", "온도기록"]},
             ],
             "서중": [
-                {"id": "SITE-HOT-01", "item": "[서중 특화] 서중 콘크리트 타설 온도(35℃ 이하) 제어 및 급결 방지제 적용", "req": "직사광선 차단, 골재 살수 및 수화열 제어 계획", "keywords": ["서중", "타설온도", "수화열", "급결방지", "양생"]},
+                {"id": "SITE-HOT-01", "item": "[서중 특화] 서중 콘크리트 타설 온도 제어 및 급결 방지 계획", "req": "승인 시방서의 재료·타설 온도와 운반·양생 관리기준 확인", "keywords": ["서중", "타설온도", "수화열", "급결방지", "양생"]},
             ],
         }
 
@@ -100,9 +103,7 @@ class AdaptiveChecklistEngine:
         if matched_work_key:
             checklist.extend(self.work_type_bank[matched_work_key])
         else:
-            # Add general construction items from civil/concrete
-            checklist.extend(self.work_type_bank["토공/가설"][:3])
-            checklist.extend(self.work_type_bank["골조/콘크리트"][:3])
+            raise ValueError(f"지원하지 않는 공종입니다: {work_type}")
 
         # 2. Site Conditions Modifiers
         cond_text = site_conditions.strip()
@@ -208,13 +209,13 @@ class AdaptiveChecklistEngine:
                     break
 
             if match_ratio >= 0.5 or (len(matched_keywords) >= 2):
-                status = "PASS (적합)"
+                status = "EVIDENCE_FOUND (수동판정필요)"
                 pass_count += 1
-                action = "승인 적정"
+                action = "인용 근거의 수치·도면 일치 여부를 책임기술인이 확인"
             else:
                 status = "MODIFY (보완필요)"
                 modify_count += 1
-                action = f"시공계획서 내 누락된 관리기준({req[:40]}...) 보완 작성 지시"
+                action = f"체크리스트 후보({req[:40]}...)의 적용 여부와 최신 기준을 확인 후 보완"
                 if not evidence:
                     evidence = "관련 내용 및 세부 관리계획 미언급"
 
@@ -231,9 +232,12 @@ class AdaptiveChecklistEngine:
         total_eval = pass_count + modify_count
         score_pct = round((pass_count / total_eval) * 100, 1) if total_eval > 0 else 0.0
 
-        overall_verdict = "시공계획서 원안 승인 (PASS)" if score_pct >= 85.0 and modify_count == 0 else (
-            "조건부 승인 및 보완 지시 (CONDITIONAL_PASS)" if score_pct >= 70.0 else "시공계획서 반려 및 전면 재작성 (REJECT)"
-        )
+        if not plan_text:
+            overall_verdict = "시공계획서 미제출로 판정 불가 (REVIEW_REQUIRED)"
+        elif modify_count:
+            overall_verdict = "누락 항목 보완 및 근거 수동검토 필요 (REVIEW_REQUIRED)"
+        else:
+            overall_verdict = "관련 근거 발견, 책임기술인 최종 판정 필요 (REVIEW_REQUIRED)"
 
         return {
             "status": "SUCCESS",
@@ -243,8 +247,11 @@ class AdaptiveChecklistEngine:
             "plan_file": plan_file or "-",
             "overall_verdict": overall_verdict,
             "compliance_score_pct": score_pct,
+            "evidence_coverage_pct": score_pct,
+            "metric_notice": "compliance_score_pct는 호환용 필드이며 적합률이 아닌 키워드 근거 발견률입니다.",
             "total_items": len(evaluated_items),
             "pass_count": pass_count,
+            "evidence_found_count": pass_count,
             "modify_count": modify_count,
             "checklist_results": evaluated_items,
         }

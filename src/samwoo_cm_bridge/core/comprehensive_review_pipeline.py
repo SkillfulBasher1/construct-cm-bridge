@@ -1,30 +1,18 @@
-"""Comprehensive CM Review Pipeline (End-to-End One-Click Review Engine)
+"""Evidence-based end-to-end CM review pipeline."""
 
-Connects:
-1. Local Multi-format Document Parsing (Plan HWPX/DOCX, Spec HWPX/DOCX, Calc XLSX)
-2. Real-time Semantic Standard & National Law Backtracking (KDS/KCS/Laws)
-3. Deterministic Python Mathematical Verification (5-domain formulas)
-4. 3-Way Cross-Verification Matrix Generation (Law vs Spec vs Submission)
-5. Automated Samwoo CM Standard Word (.docx) & Markdown (.md) Report Assembly
-"""
+import re
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 
-import os
-import logging
-from pathlib import Path
-from typing import Dict, Any, List, Optional, Union
-
-from .doc_parser import DocumentParser, SECURE_DATA_DIR
-from .openapi_client import OpenApiClient, fetch_national_law, fetch_kcsc_standard
-from .semantic_standard_searcher import SemanticStandardSearcher
-from .formula_engine import FormulaEngine, verify_calculation_safety
-from .docx_exporter import DocxExporter, export_review_document
 from .batch_cross_checker import BatchCrossChecker
-
-logger = logging.getLogger(__name__)
+from .doc_parser import DocumentParser
+from .docx_exporter import DocxExporter
+from .formula_engine import FormulaEngine
+from .semantic_standard_searcher import SemanticStandardSearcher
 
 
 class ComprehensiveReviewPipeline:
-    """End-to-End One-Click CM Technical Review Engine."""
+    """Parses supplied documents and reports only evidence found in them."""
 
     def __init__(
         self,
@@ -37,8 +25,14 @@ class ComprehensiveReviewPipeline:
         self.parser = parser or DocumentParser()
         self.searcher = searcher or SemanticStandardSearcher()
         self.formula_engine = formula_engine or FormulaEngine()
-        self.exporter = exporter or DocxExporter()
+        self.exporter = exporter or DocxExporter(self.parser.secure_dir)
         self.cross_checker = cross_checker or BatchCrossChecker(self.parser)
+
+    @staticmethod
+    def _extract_labeled_number(text: str, labels: List[str]) -> Optional[float]:
+        label_pattern = "|".join(re.escape(label) for label in labels)
+        match = re.search(rf"(?:{label_pattern})[^\d-]{{0,50}}(-?\d+(?:\.\d+)?)", text, re.I)
+        return float(match.group(1)) if match else None
 
     def run_auto_review(
         self,
@@ -46,189 +40,177 @@ class ComprehensiveReviewPipeline:
         spec_file: Optional[str] = None,
         calc_file: Optional[str] = None,
         output_report_name: str = "종합_CM기술검토의견서.docx",
-        project_name: str = "삼우씨엠 신축공사 CM현장",
-        reviewer_name: str = "김수석 책임건설사업관리기술인",
-        contractor_name: str = "(주)대우건설",
+        project_name: str = "미입력 프로젝트",
+        reviewer_name: str = "미입력 책임기술인",
+        contractor_name: str = "미입력 시공사",
     ) -> Dict[str, Any]:
-        """Executes full end-to-end 3-way technical review and generates Samwoo CM inspection report."""
-        
-        # 1. Parse submitted documents
         plan_doc = self.parser.parse_document(target_plan_file)
         plan_text = plan_doc.get("markdown", "")
         plan_entities = self.cross_checker._extract_numeric_entities(plan_text, target_plan_file)
 
         spec_text = ""
-        spec_entities = {}
+        spec_entities: Dict[str, Any] = {}
         if spec_file:
             spec_doc = self.parser.parse_document(spec_file)
             spec_text = spec_doc.get("markdown", "")
             spec_entities = self.cross_checker._extract_numeric_entities(spec_text, spec_file)
 
         calc_text = ""
-        calc_entities = {}
+        calc_entities: Dict[str, Any] = {}
         if calc_file:
             calc_doc = self.parser.parse_document(calc_file)
             calc_text = calc_doc.get("markdown", "")
             calc_entities = self.cross_checker._extract_numeric_entities(calc_text, calc_file)
 
-        # 2. Semantic Search & Legal/KCSC Standard Backtracking
-        search_query = f"{target_plan_file} {plan_text[:300]} {calc_text[:200]}"
+        search_query = f"{plan_text[:500]} {spec_text[:500]} {calc_text[:500]}"
         search_res = self.searcher.search_standards(search_query, top_k=3)
-        top_standards = search_res.get("top_results", [])
-
         referenced_standards: List[Dict[str, Any]] = []
-        for std in top_standards:
-            code = std["code"]
-            if "KDS" in code or "KCS" in code or "KEC" in code:
-                kcsc_data = fetch_kcsc_standard(code)
-                referenced_standards.append({
-                    "code": code,
-                    "title": std.get("title", ""),
-                    "category": std.get("category", "건설기준"),
-                    "content_summary": kcsc_data.get("content", "")[:200],
-                })
+        for result in search_res.get("top_results", []):
+            code = result["code"]
+            if result.get("category") == "국가법령":
+                law_match = re.match(r"(.+?)\s+제(\d+)조", code)
+                source = self.searcher.client.fetch_national_law(
+                    law_match.group(1) if law_match else result.get("discipline", code),
+                    law_match.group(2) if law_match else None,
+                )
             else:
-                law_data = fetch_national_law(std.get("discipline", "건설기술 진흥법"))
-                referenced_standards.append({
-                    "code": code,
-                    "title": std.get("title", ""),
-                    "category": "국가법령",
-                    "content_summary": law_data.get("content", "")[:200],
-                })
+                source = self.searcher.client.fetch_kcsc_standard(code)
+            referenced_standards.append({
+                "code": code,
+                "title": result.get("title", ""),
+                "category": result.get("category", ""),
+                "source": source.get("source", "NOT_FOUND"),
+                "content_summary": source.get("content", result.get("excerpt", ""))[:200],
+            })
 
-        # 3. Deterministic Engineering Math Verification (Python Engine)
+        combined_calc_text = calc_text or plan_text
+        design_val = self._extract_labeled_number(combined_calc_text, ["작용응력", "설계응력", "작용치"])
+        allowable_val = self._extract_labeled_number(combined_calc_text, ["허용응력", "허용치"])
+        req_sf = self._extract_labeled_number(
+            f"{spec_text}\n{combined_calc_text}",
+            ["요구안전율", "기준안전율", "최소안전율"],
+        )
+
         math_evaluations: List[Dict[str, Any]] = []
-        
-        # Check calculation sheet values if present
-        stresses = calc_entities.get("stresses", []) or plan_entities.get("stresses", [])
-        safety_factors = calc_entities.get("safety_factors", []) or plan_entities.get("safety_factors", [])
-
-        # Default strut evaluation check
-        if any("300" in s for s in calc_entities.get("steel_sections", []) + plan_entities.get("steel_sections", [])) or "버팀보" in plan_text + calc_text:
-            m_res = self.formula_engine.verify(
-                item_name="가설 흙막이 1단 버팀보 (H-300x300)",
+        if design_val is not None and allowable_val is not None and req_sf is not None:
+            math_evaluations.append(self.formula_engine.verify(
+                item_name="문서에서 추출한 허용응력 안전율",
                 domain="토목/구조",
-                design_val=205.4,
-                allowable_val=220.0,
-                req_sf=1.25,
+                design_val=design_val,
+                allowable_val=allowable_val,
+                req_sf=req_sf,
                 formula_type="civil_safety_factor",
-            )
-            math_evaluations.append(m_res)
+            ))
 
-        # 4. Build 3-Way Cross Examination Matrix (4단 대조표)
         cross_table: List[Dict[str, Any]] = []
-
-        # Row 1: Structural Member Safety Factor
         if math_evaluations:
-            m0 = math_evaluations[0]
-            cross_table.append({
-                "item": "가설 흙막이 버팀보 안전율(Fs)",
-                "standard_basis": "KDS 21 30 00 (Fs >= 1.25)",
-                "client_requirement": "특기시방 4.1조: KS인증 강재 및 요구 안전율 Fs >= 1.25 준수",
-                "contractor_submission": f"1단 버팀보 계산서 상 Fs = {m0.get('calculated_value')} (작용 205.4 / 허용 220.0 MPa)",
-                "verdict": m0.get("judgement", "FAIL (부적합)"),
-                "notes": "부재 단면 상향(H-350 계열) 또는 지지간격 축소 보완 필요",
-            })
+            math_result = math_evaluations[0]
+            numeric_submission = (
+                f"작용응력 {design_val}, 허용응력 {allowable_val}, 요구안전율 {req_sf}; "
+                f"계산 Fs={math_result.get('calculated_value')}"
+            )
+            numeric_verdict = math_result.get("judgement", "ERROR")
+            numeric_notes = math_result.get("action_required", "검산 결과 확인 필요")
         else:
-            cross_table.append({
-                "item": "가설 구조물 안전율",
-                "standard_basis": "KDS 21 30 00 (Fs >= 1.25)",
-                "client_requirement": "특기시방 기준 만족",
-                "contractor_submission": "설계 안전율 Fs >= 1.25 만족",
-                "verdict": "PASS (적합)",
-                "notes": "기준 충족 확인",
-            })
+            numeric_submission = "작용응력·허용응력·요구안전율의 완전한 조합을 추출하지 못함"
+            numeric_verdict = "REVIEW_REQUIRED"
+            numeric_notes = "원 계산서의 단위와 라벨을 수동 확인"
+        cross_table.append({
+            "item": "수치 안전율 검산",
+            "standard_basis": "검색된 기준 원문 및 승인 설계기준 확인 필요",
+            "client_requirement": f"특기시방 파일: {spec_file or '미제공'}",
+            "contractor_submission": numeric_submission,
+            "verdict": numeric_verdict,
+            "notes": numeric_notes,
+        })
 
-        # Row 2: Steel / Material Specifications
         steel_specs = calc_entities.get("steel_sections", []) or plan_entities.get("steel_sections", [])
-        steel_desc = ", ".join(steel_specs) if steel_specs else "KS D 3503 SS275"
         cross_table.append({
-            "item": "가설 강재 품질 및 밀시트",
-            "standard_basis": "KCS 14 31 25 (강구조 가설물 시방)",
-            "client_requirement": "KS 인증품 사용 및 공장 밀시트(Mill Sheet) 제출",
-            "contractor_submission": f"적용 강재: {steel_desc} (밀시트 첨부)",
-            "verdict": "PASS (적합)",
-            "notes": "공장 검사 성적서 일치 확인 완료",
+            "item": "강재·부재 규격",
+            "standard_basis": "승인 도면·시방·자재성적서 대조 필요",
+            "client_requirement": "특기시방 원문 확인 필요" if spec_file else "특기시방 미제공",
+            "contractor_submission": ", ".join(steel_specs) if steel_specs else "관련 규격을 추출하지 못함",
+            "verdict": "EVIDENCE_FOUND (REVIEW_REQUIRED)" if steel_specs else "REVIEW_REQUIRED",
+            "notes": "규격 문자열 발견은 자재 적합 또는 밀시트 확인을 의미하지 않음",
         })
 
-        # Row 3: Statutory Safety Management Plan
+        safety_plan_found = "안전관리계획" in plan_text
         cross_table.append({
-            "item": "안전관리계획서 수립 대상",
-            "standard_basis": "건설기술 진흥법 제62조 (10m 이상 굴착)",
-            "client_requirement": "착공 전 안전관리계획서 제출 및 감리원 승인",
-            "contractor_submission": "안전관리계획서 및 비상연락망 수립 완료",
-            "verdict": "PASS (적합)",
-            "notes": "인허가청 승인 절차 병행 확인",
+            "item": "안전관리계획 근거",
+            "standard_basis": "해당 사업의 적용 법령과 승인 요건 확인 필요",
+            "client_requirement": "특기시방 원문 확인 필요" if spec_file else "특기시방 미제공",
+            "contractor_submission": "관련 문구 발견" if safety_plan_found else "관련 문구 미발견",
+            "verdict": "EVIDENCE_FOUND (REVIEW_REQUIRED)" if safety_plan_found else "REVIEW_REQUIRED",
+            "notes": "문구 존재만으로 작성·승인 완료를 판정하지 않음",
         })
 
-        # Row 4: Monitoring Frequency
-        mon_freq = spec_entities.get("monitoring_frequency", []) or ["주 2회"]
+        spec_freq = spec_entities.get("monitoring_frequency", [])
+        plan_freq = plan_entities.get("monitoring_frequency", [])
+        if spec_freq and plan_freq:
+            frequency_match = bool(set(spec_freq) & set(plan_freq))
+            frequency_verdict = "EVIDENCE_MATCH" if frequency_match else "DISCREPANCY"
+        else:
+            frequency_match = False
+            frequency_verdict = "REVIEW_REQUIRED"
         cross_table.append({
-            "item": "인접 지표 및 경사계 계측 주기",
-            "standard_basis": "KDS 21 30 00 / 발주처 지시공문",
-            "client_requirement": f"계측 주기 강화 ({', '.join(mon_freq) if mon_freq else '주 2회 이상'})",
-            "contractor_submission": "계측계획서 상 주 2회 계측 및 일일 보고 체계 수립",
-            "verdict": "PASS (적합)",
-            "notes": "발주처 강화 지시사항 정상 반영",
+            "item": "계측 주기",
+            "standard_basis": "제공된 특기시방/지시 원문",
+            "client_requirement": ", ".join(spec_freq) if spec_freq else "추출 근거 없음",
+            "contractor_submission": ", ".join(plan_freq) if plan_freq else "추출 근거 없음",
+            "verdict": frequency_verdict,
+            "notes": "문서 간 동일 표기 확인" if frequency_match else "원문과 적용 위치를 수동 확인",
         })
 
-        # 5. Overall Verdict & Formulation of Comprehensive Opinion
-        has_fail = any("FAIL" in r.get("verdict", "") or "부적합" in r.get("verdict", "") for r in cross_table)
-        overall_verdict = "보완 후 재제출 (FAIL/REVISE)" if has_fail else "원안 승인 (PASS)"
+        has_fail = any(
+            "FAIL" in row["verdict"] or "부적합" in row["verdict"] or "DISCREPANCY" in row["verdict"]
+            for row in cross_table
+        )
+        overall_verdict = "보완 후 재제출 (FAIL/REVISE)" if has_fail else "근거 확인 후 최종 판정 필요 (REVIEW_REQUIRED)"
 
-        # Assemble Full Markdown Document Body
         md_body_lines = [
-            f"# 1. 검토 개요",
+            "# 1. 검토 개요",
             f"- **사업명:** {project_name}",
-            f"- **검토 대상 도서:** {target_plan_file} (첨부: {calc_file or '자체 계산서'}, {spec_file or '특기시방서'})",
+            f"- **검토 대상 도서:** {target_plan_file} (계산서: {calc_file or '미제공'}, 특기시방: {spec_file or '미제공'})",
             f"- **시공사:** {contractor_name}",
-            f"- **검토 일자:** {os.path.basename(output_report_name)}",
+            f"- **검토 일자:** {datetime.now().strftime('%Y.%m.%d')}",
             f"- **책임 감리원:** {reviewer_name}\n",
-            f"# 2. 관련 법령 및 국가건설기준 (KDS/KCS) 자동 연동 내역",
+            "# 2. 관련 법령 및 국가건설기준 검색 내역",
         ]
-
-        for std in referenced_standards:
-            md_body_lines.append(f"- **[{std['code']}] {std['title']}** ({std['category']}): {std['content_summary']}")
+        if referenced_standards:
+            for standard in referenced_standards:
+                md_body_lines.append(
+                    f"- **[{standard['code']}] {standard['title']}** ({standard['source']}): {standard['content_summary']}"
+                )
+        else:
+            md_body_lines.append("- 문서 내용과 매칭된 로컬 기준 없음 (REVIEW_REQUIRED)")
 
         md_body_lines.extend([
-            f"\n# 3. 3자 교차 검토 종합 대조표 (국가법령 - KCSC기준 - 발주처시방 - 시공사제출값)",
-            f"| 검토 항목 | 국가법령 및 KDS/KCS 기준 | 발주처 시방/요구조건 | 시공사 제출 설계치 | 판정 결과 | 비고 / 감리 조치사항 |",
-            f"|---|---|---|---|---|---|",
+            "\n# 3. 근거 기반 교차 검토표",
+            "| 검토 항목 | 기준 근거 | 발주처 요구조건 | 시공사 제출 근거 | 판정 결과 | 비고 |",
+            "|---|---|---|---|---|---|",
         ])
-
-        for r in cross_table:
-            v_badge = f"**{r['verdict']}**"
+        for row in cross_table:
             md_body_lines.append(
-                f"| {r['item']} | {r['standard_basis']} | {r['client_requirement']} | {r['contractor_submission']} | {v_badge} | {r['notes']} |"
+                f"| {row['item']} | {row['standard_basis']} | {row['client_requirement']} | {row['contractor_submission']} | **{row['verdict']}** | {row['notes']} |"
             )
 
         if math_evaluations:
-            md_body_lines.extend([
-                f"\n# 4. 공학적 세부 수치 검산 내역 (Deterministic Python Verifier)",
-            ])
-            for m in math_evaluations:
+            md_body_lines.append("\n# 4. 결정론적 수치 검산")
+            for result in math_evaluations:
                 md_body_lines.append(
-                    f"- **검토 부재:** {m.get('item_name')}\n"
-                    f"  - 연산 공식: ${m.get('formula')}$\n"
-                    f"  - 계산 안전율: **{m.get('calculated_value')}** (요구 기준치: {m.get('threshold_value')}, 여유율: {m.get('margin_pct')}%)\n"
-                    f"  - 판정 결과: **{m.get('judgement')}** ({m.get('action_required')})"
+                    f"- 공식: `{result.get('formula')}` / 계산값: {result.get('calculated_value')} / "
+                    f"기준값: {result.get('threshold_value')} / 판정: **{result.get('judgement')}**"
                 )
 
         md_body_lines.extend([
-            f"\n# 5. 종합 감리 검토의견 및 시공사 조치 지시사항",
-            f"1. **총괄 판정:** 본 시공계획서 및 구조계산서 검토 결과, 건설기술 진흥법에 따른 일반 안전관리 항목은 적정하나, **KDS 21 30 00 기준 대비 가설 버팀보의 계산 안전율($F_s = 1.07$)이 법적 최소 요구치($1.25$)에 미달**함.",
-            f"2. **시공사 조치 지시사항:**",
-            f"   - 1단 버팀보 규격을 기존 H-300x300x10x15에서 **H-350x350x12x19 계열로 단면 상향**하거나 수평 지지간격을 축소할 것.",
-            f"   - 수정된 단면력 및 안전율을 반영한 구조계산서 재산정본을 첨부하여 시공계획서를 **보완 재제출**할 것.",
-            f"   - 감리단의 최종 승인 전 해당 구간에 대한 선행 굴착을 엄격히 금지함.",
+            "\n# 5. 종합 검토의견",
+            f"- **총괄 판정:** {overall_verdict}",
+            "- 자동 검토는 제공 문서에서 확인된 근거만 표시합니다. 미제공 자료, 승인 여부, 현장 시공 상태는 책임기술인이 확인해야 합니다.",
         ])
 
-        full_report_text = "\n".join(md_body_lines)
-
-        # 6. Render into Samwoo CM Standard Word (.docx) & Markdown (.md)
         export_res = self.exporter.export(
             output_filename=output_report_name,
-            report_text=full_report_text,
+            report_text="\n".join(md_body_lines),
             project_name=project_name,
             reviewer_name=reviewer_name,
             discipline="건설사업관리(CM) 종합",
@@ -244,14 +226,10 @@ class ComprehensiveReviewPipeline:
             "math_verifications": math_evaluations,
             "generated_docx_file": export_res.get("docx_path"),
             "generated_md_file": export_res.get("md_path"),
-            "summary_opinion": (
-                "KDS 21 30 00 기준 1단 버팀보 안전율(1.07 < 1.25) 미달 확인 -> "
-                "H-350 단면 상향 및 구조계산서 보완 후 재제출 지시 (FAIL)"
-            ),
+            "summary_opinion": overall_verdict,
         }
 
 
-# Singleton instance
 _comprehensive_pipeline = ComprehensiveReviewPipeline()
 
 
@@ -260,8 +238,8 @@ def run_comprehensive_review(
     spec_file: Optional[str] = None,
     calc_file: Optional[str] = None,
     output_report_name: str = "종합_CM기술검토의견서.docx",
-    project_name: str = "삼우씨엠 신축공사 CM현장",
-    reviewer_name: str = "김수석 책임건설사업관리기술인",
+    project_name: str = "미입력 프로젝트",
+    reviewer_name: str = "미입력 책임기술인",
 ) -> Dict[str, Any]:
     return _comprehensive_pipeline.run_auto_review(
         target_plan_file=target_plan_file,

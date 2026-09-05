@@ -99,6 +99,26 @@ class SemanticStandardSearcher:
         top_k: int = 3,
     ) -> Dict[str, Any]:
         """Searches standards and laws by natural language query with synonym expansion."""
+        if not isinstance(query, str) or not query.strip():
+            return {
+                "status": "ERROR",
+                "query": query,
+                "domain_filter": domain or "전체",
+                "total_matches": 0,
+                "top_results": [],
+                "pipeline_hint": None,
+                "error": "검색어는 비어 있을 수 없습니다.",
+            }
+        if isinstance(top_k, bool) or not isinstance(top_k, int) or top_k < 1:
+            return {
+                "status": "ERROR",
+                "query": query,
+                "domain_filter": domain or "전체",
+                "total_matches": 0,
+                "top_results": [],
+                "pipeline_hint": None,
+                "error": "top_k는 1 이상의 정수여야 합니다.",
+            }
         clean_q = query.strip().lower()
         q_tokens = clean_q.split()
 

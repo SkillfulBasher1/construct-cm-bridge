@@ -40,6 +40,8 @@ class SafeEvalVisitor(ast.NodeVisitor):
         "cos": math.cos,
         "tan": math.tan,
     }
+    MAX_ABS_VALUE = 1e12
+    MAX_POWER = 12
 
     def __init__(self, variables: Dict[str, Union[int, float]]):
         self.variables = variables
@@ -53,15 +55,15 @@ class SafeEvalVisitor(ast.NodeVisitor):
         return self.visit(node.body)
 
     def visit_Constant(self, node):
-        if isinstance(node.value, (int, float, bool)):
-            return node.value
-        raise ValueError(f"Unsupported constant type: {type(node.value)}")
+        if isinstance(node.value, bool) or not isinstance(node.value, (int, float)):
+            raise ValueError(f"Unsupported constant type: {type(node.value)}")
+        if not math.isfinite(float(node.value)) or abs(node.value) > self.MAX_ABS_VALUE:
+            raise ValueError("Formula constant is outside the allowed finite range.")
+        return node.value
 
     def visit_Name(self, node):
         if node.id in self.variables:
             return self.variables[node.id]
-        elif node.id in self.ALLOWED_FUNCTIONS:
-            return self.ALLOWED_FUNCTIONS[node.id]
         raise ValueError(f"Undefined variable in formula: '{node.id}'")
 
     def visit_UnaryOp(self, node):
@@ -92,12 +94,20 @@ class SafeEvalVisitor(ast.NodeVisitor):
         elif isinstance(node.op, ast.Mod):
             return left % right
         elif isinstance(node.op, ast.Pow):
+            if abs(right) > self.MAX_POWER:
+                raise ValueError(f"Power exponent exceeds the safe limit ({self.MAX_POWER}).")
             return left ** right
         raise ValueError(f"Unsupported binary operator: {type(node.op)}")
 
     def visit_Call(self, node):
-        func = self.visit(node.func)
+        if not isinstance(node.func, ast.Name) or node.func.id not in self.ALLOWED_FUNCTIONS:
+            raise ValueError("Only approved named math functions may be called.")
+        if node.keywords:
+            raise ValueError("Keyword arguments are not supported in formulas.")
+        func = self.ALLOWED_FUNCTIONS[node.func.id]
         args = [self.visit(arg) for arg in node.args]
+        if node.func.id == "pow" and len(args) == 2 and abs(args[1]) > self.MAX_POWER:
+            raise ValueError(f"Power exponent exceeds the safe limit ({self.MAX_POWER}).")
         return func(*args)
 
     def visit_Compare(self, node):
@@ -125,9 +135,29 @@ class SafeEvalVisitor(ast.NodeVisitor):
 
 def safe_eval(expression: str, variables: Dict[str, Union[int, float]]) -> Union[float, bool]:
     """Safely evaluates a mathematical expression string using AST."""
+    if not isinstance(expression, str) or not expression.strip():
+        raise ValueError("Formula expression is empty.")
+    if len(expression) > 500:
+        raise ValueError("Formula expression exceeds the 500 character limit.")
+    clean_variables: Dict[str, Union[int, float]] = {}
+    for name, value in variables.items():
+        if not isinstance(name, str) or not name.isidentifier():
+            raise ValueError(f"Invalid variable name: {name!r}")
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError(f"Variable '{name}' must be a number.")
+        if not math.isfinite(float(value)) or abs(value) > SafeEvalVisitor.MAX_ABS_VALUE:
+            raise ValueError(f"Variable '{name}' is outside the allowed finite range.")
+        clean_variables[name] = value
     tree = ast.parse(expression, mode="eval")
-    visitor = SafeEvalVisitor(variables)
-    return visitor.visit(tree)
+    if sum(1 for _ in ast.walk(tree)) > 100:
+        raise ValueError("Formula expression is too complex.")
+    result = SafeEvalVisitor(clean_variables).visit(tree)
+    if not isinstance(result, (int, float, bool)):
+        raise ValueError("Formula result must be numeric or boolean.")
+    if isinstance(result, (int, float)) and not isinstance(result, bool):
+        if not math.isfinite(float(result)) or abs(result) > SafeEvalVisitor.MAX_ABS_VALUE:
+            raise ValueError("Formula result is outside the allowed finite range.")
+    return result
 
 
 class FormulaRegistry:
@@ -140,27 +170,36 @@ class FormulaRegistry:
             "name": "일반 허용응력/안전율 산정",
             "formula_str": "allowable_val / design_val",
             "required_vars": ["design_val", "allowable_val", "req_sf"],
+            "positive_vars": ["design_val"],
             "unit": "-",
             "eval_func": lambda vars: vars["allowable_val"] / vars["design_val"] if vars["design_val"] != 0 else 0,
             "check_func": lambda calc_val, vars: calc_val >= vars["req_sf"],
+            "threshold_var": "req_sf",
+            "comparison": "min",
         },
         "civil_strut_buckling": {
             "domain": "토목/구조",
             "name": "가설 흙막이 버팀보(Strut) 좌굴 안전율",
             "formula_str": "allowable_axial_stress / design_axial_stress",
             "required_vars": ["design_axial_stress", "allowable_axial_stress", "req_sf"],
+            "positive_vars": ["design_axial_stress"],
             "unit": "-",
             "eval_func": lambda vars: vars["allowable_axial_stress"] / vars["design_axial_stress"] if vars["design_axial_stress"] != 0 else 0,
             "check_func": lambda calc_val, vars: calc_val >= vars["req_sf"],
+            "threshold_var": "req_sf",
+            "comparison": "min",
         },
         "civil_ground_anchor": {
             "domain": "토목/구조",
             "name": "가설 그라운드 앵커 인장 안전율",
             "formula_str": "ultimate_anchor_force / design_anchor_force",
             "required_vars": ["design_anchor_force", "ultimate_anchor_force", "req_sf"],
+            "positive_vars": ["design_anchor_force"],
             "unit": "-",
             "eval_func": lambda vars: vars["ultimate_anchor_force"] / vars["design_anchor_force"] if vars["design_anchor_force"] != 0 else 0,
             "check_func": lambda calc_val, vars: calc_val >= vars["req_sf"],
+            "threshold_var": "req_sf",
+            "comparison": "min",
         },
         # 2. 기계 / 설비 (Mechanical / HVAC)
         "mep_pump_head_margin": {
@@ -168,9 +207,12 @@ class FormulaRegistry:
             "name": "급수/순환 펌프 양정 여유율(%)",
             "formula_str": "((actual_head - required_head) / required_head) * 100",
             "required_vars": ["actual_head", "required_head", "min_margin_pct"],
+            "positive_vars": ["required_head"],
             "unit": "%",
             "eval_func": lambda vars: ((vars["actual_head"] - vars["required_head"]) / vars["required_head"]) * 100 if vars["required_head"] != 0 else 0,
             "check_func": lambda calc_val, vars: calc_val >= vars["min_margin_pct"],
+            "threshold_var": "min_margin_pct",
+            "comparison": "min",
         },
         "mep_ventilation_rate": {
             "domain": "기계/설비",
@@ -180,6 +222,8 @@ class FormulaRegistry:
             "unit": "CMH",
             "eval_func": lambda vars: vars["actual_air_flow"] - (vars["room_volume"] * vars["required_ach"]),
             "check_func": lambda calc_val, vars: calc_val >= 0,
+            "threshold_value": 0.0,
+            "comparison": "min",
         },
         # 3. 소방 (Fire Protection)
         "fire_reservoir_hydrant": {
@@ -190,6 +234,8 @@ class FormulaRegistry:
             "unit": "m³",
             "eval_func": lambda vars: vars["actual_reservoir_vol"] - (min(vars["hydrant_count"], 5) * 2.6),
             "check_func": lambda calc_val, vars: calc_val >= 0,
+            "threshold_value": 0.0,
+            "comparison": "min",
         },
         "fire_sprinkler_flow": {
             "domain": "소방",
@@ -199,6 +245,8 @@ class FormulaRegistry:
             "unit": "L/min",
             "eval_func": lambda vars: vars["k_factor"] * math.sqrt(10 * vars["pressure_mpa"]),
             "check_func": lambda calc_val, vars: calc_val >= vars["req_min_flow"],
+            "threshold_var": "req_min_flow",
+            "comparison": "min",
         },
         # 4. 전기 / 통신 (Electrical / Telecom)
         "elec_voltage_drop_pct": {
@@ -206,18 +254,24 @@ class FormulaRegistry:
             "name": "3상 4선식 선로 전압강하율(%) 검토",
             "formula_str": "((17.8 * length_m * current_a) / (1000 * wire_area_sqmm * nominal_voltage)) * 100",
             "required_vars": ["length_m", "current_a", "wire_area_sqmm", "nominal_voltage", "max_drop_pct"],
+            "positive_vars": ["wire_area_sqmm", "nominal_voltage"],
             "unit": "%",
             "eval_func": lambda vars: ((17.8 * vars["length_m"] * vars["current_a"]) / (1000 * vars["wire_area_sqmm"] * vars["nominal_voltage"])) * 100,
             "check_func": lambda calc_val, vars: calc_val <= vars["max_drop_pct"],
+            "threshold_var": "max_drop_pct",
+            "comparison": "max",
         },
         "elec_transformer_load": {
             "domain": "전기/통신",
             "name": "변압기 부하율 및 여유 용량 검토",
             "formula_str": "(connected_load_kva * demand_factor) / transformer_capacity_kva * 100",
             "required_vars": ["connected_load_kva", "demand_factor", "transformer_capacity_kva", "max_load_pct"],
+            "positive_vars": ["transformer_capacity_kva"],
             "unit": "%",
             "eval_func": lambda vars: (vars["connected_load_kva"] * vars["demand_factor"]) / vars["transformer_capacity_kva"] * 100,
             "check_func": lambda calc_val, vars: calc_val <= vars["max_load_pct"],
+            "threshold_var": "max_load_pct",
+            "comparison": "max",
         },
         # 5. 건축 (Architectural)
         "arch_u_value": {
@@ -225,9 +279,12 @@ class FormulaRegistry:
             "name": "외벽 열관류율(U-value) 검토",
             "formula_str": "1.0 / (0.13 + (insulation_thick_m / lambda_val) + 0.15 + 0.043)",
             "required_vars": ["insulation_thick_m", "lambda_val", "max_u_value"],
+            "positive_vars": ["lambda_val"],
             "unit": "W/m²·K",
             "eval_func": lambda vars: 1.0 / (0.13 + (vars["insulation_thick_m"] / vars["lambda_val"]) + 0.15 + 0.043),
             "check_func": lambda calc_val, vars: calc_val <= vars["max_u_value"],
+            "threshold_var": "max_u_value",
+            "comparison": "max",
         },
     }
 
@@ -237,6 +294,17 @@ class FormulaEngine:
 
     def __init__(self):
         self.registry = FormulaRegistry.REGISTRY
+
+    @staticmethod
+    def _validate_numeric_variables(variables: Dict[str, Any], required: Optional[List[str]] = None) -> None:
+        missing = [name for name in (required or []) if name not in variables]
+        if missing:
+            raise ValueError(f"필수 변수가 누락되었습니다: {', '.join(missing)}")
+        for name, value in variables.items():
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                raise ValueError(f"변수 '{name}'는 숫자여야 합니다.")
+            if not math.isfinite(float(value)):
+                raise ValueError(f"변수 '{name}'는 유한한 숫자여야 합니다.")
 
     def verify(
         self,
@@ -274,7 +342,11 @@ class FormulaEngine:
         # 1. Custom Formula Evaluation via Safe AST
         if custom_formula:
             try:
-                calc_val = float(safe_eval(custom_formula, vars_dict))
+                self._validate_numeric_variables(vars_dict)
+                raw_result = safe_eval(custom_formula, vars_dict)
+                if isinstance(raw_result, bool):
+                    raise ValueError("커스텀 검산식은 불리언이 아닌 수치 결과를 반환해야 합니다.")
+                calc_val = float(raw_result)
                 threshold = req_sf if req_sf is not None else vars_dict.get("req_sf", 1.0)
                 is_pass = calc_val >= threshold
                 margin_pct = ((calc_val - threshold) / threshold) * 100 if threshold != 0 else 0
@@ -289,8 +361,8 @@ class FormulaEngine:
                     "calculated_value": round(calc_val, 4),
                     "threshold_value": threshold,
                     "margin_pct": round(margin_pct, 2),
-                    "judgement": "PASS (적합)" if is_pass else "FAIL (부적합/보완필요)",
-                    "action_required": "승인 가능" if is_pass else f"기준치({threshold}) 미달 (계산값 {round(calc_val, 3)}), 규격 증대 및 재계산 요구",
+                    "judgement": "PASS (입력 산식 기준 충족)" if is_pass else "FAIL (입력 산식 기준 미충족)",
+                    "action_required": "입력값·적용 기준 원문 검토 필요 (승인 판정 아님)" if is_pass else f"입력 기준치({threshold}) 미달 (계산값 {round(calc_val, 3)}), 입력값·적용 기준 및 보완안 재검토 필요",
                 }
             except Exception as e:
                 logger.error(f"Custom formula evaluation error: {e}")
@@ -307,12 +379,31 @@ class FormulaEngine:
         if target_formula_key in self.registry:
             spec = self.registry[target_formula_key]
             try:
+                self._validate_numeric_variables(vars_dict, spec.get("required_vars", []))
+                invalid_positive = [
+                    name for name in spec.get("positive_vars", []) if vars_dict[name] <= 0
+                ]
+                if invalid_positive:
+                    raise ValueError(
+                        f"0보다 커야 하는 변수가 잘못되었습니다: {', '.join(invalid_positive)}"
+                    )
                 calc_val = float(spec["eval_func"](vars_dict))
+                if not math.isfinite(calc_val):
+                    raise ValueError("계산 결과가 유한한 숫자가 아닙니다.")
                 is_pass = bool(spec["check_func"](calc_val, vars_dict))
                 unit = spec.get("unit", "")
 
-                threshold = req_sf if req_sf is not None else vars_dict.get("req_sf", vars_dict.get("max_drop_pct", vars_dict.get("max_u_value", 0)))
-                margin_pct = ((calc_val - threshold) / threshold) * 100 if threshold != 0 else 0
+                if "threshold_var" in spec:
+                    threshold = vars_dict[spec["threshold_var"]]
+                else:
+                    threshold = spec.get("threshold_value", 0.0)
+                if threshold != 0:
+                    if spec.get("comparison") == "max":
+                        margin_pct = ((threshold - calc_val) / abs(threshold)) * 100
+                    else:
+                        margin_pct = ((calc_val - threshold) / abs(threshold)) * 100
+                else:
+                    margin_pct = calc_val
 
                 return {
                     "status": "SUCCESS",
@@ -325,8 +416,8 @@ class FormulaEngine:
                     "unit": unit,
                     "threshold_value": threshold,
                     "margin_pct": round(margin_pct, 2),
-                    "judgement": "PASS (적합)" if is_pass else "FAIL (부적합/보완필요)",
-                    "action_required": "승인 적정" if is_pass else f"설계 기준 불만족 (계산값: {round(calc_val, 3)}{unit}, 요구치: {threshold}{unit}), 부재/용량 재검토 지시 필요",
+                    "judgement": "PASS (등록 산식 기준 충족)" if is_pass else "FAIL (등록 산식 기준 미충족)",
+                    "action_required": "입력값·적용 기준 원문 검토 필요 (승인 판정 아님)" if is_pass else f"등록 기준 미충족 (계산값: {round(calc_val, 3)}{unit}, 요구치: {threshold}{unit}), 입력값·적용 기준 및 보완안 재검토 필요",
                 }
             except Exception as e:
                 logger.error(f"Registry formula evaluation error: {e}")
@@ -343,10 +434,21 @@ class FormulaEngine:
             a_val = vars_dict["allowable_val"]
             target_sf = req_sf if req_sf is not None else vars_dict.get("req_sf", 1.25)
 
-            if d_val == 0:
-                calc_sf = 999.0
-            else:
+            try:
+                self._validate_numeric_variables(
+                    {"design_val": d_val, "allowable_val": a_val, "req_sf": target_sf},
+                    ["design_val", "allowable_val", "req_sf"],
+                )
+                if d_val == 0:
+                    raise ValueError("설계 작용치는 0일 수 없습니다.")
                 calc_sf = a_val / d_val
+            except ValueError as e:
+                return {
+                    "status": "ERROR",
+                    "item_name": item_name,
+                    "error": f"공식 연산 실패: {e}",
+                    "judgement": "ERROR",
+                }
 
             is_pass = calc_sf >= target_sf
             margin_pct = ((calc_sf - target_sf) / target_sf) * 100 if target_sf != 0 else 0
@@ -361,8 +463,8 @@ class FormulaEngine:
                 "calculated_value": round(calc_sf, 3),
                 "threshold_value": target_sf,
                 "margin_pct": round(margin_pct, 2),
-                "judgement": "PASS (적합)" if is_pass else "FAIL (부적합/단면증대필요)",
-                "action_required": "승인 가능" if is_pass else f"요구 안전율({target_sf}) 미달 (계산 안전율: {round(calc_sf, 2)}), 보강 방안 제출 지시",
+                "judgement": "PASS (입력 안전율 기준 충족)" if is_pass else "FAIL (입력 안전율 기준 미충족)",
+                "action_required": "입력값·적용 기준 원문 검토 필요 (승인 판정 아님)" if is_pass else f"입력 안전율 기준({target_sf}) 미달 (계산 안전율: {round(calc_sf, 2)}), 입력값·적용 기준 및 보완안 재검토 필요",
             }
 
         return {

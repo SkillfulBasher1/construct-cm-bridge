@@ -1,8 +1,7 @@
 """Major Structural Member Video Recording Log Manager (Module 24)
 
-Manages video recordings of critical structural inspections (rebar placement, concrete pour, underground excavation)
-under Ministry of Land, Infrastructure and Transport (MOLIT) and Local Government Mandatory Video Recording Regulations.
-Generates official Samwoo CM '주요 구조부 동영상 촬영 기록관리대장 (.docx / .md)' for regulatory submission.
+Manages user-supplied video recording metadata for structural inspections and drafts
+a review register. Project-specific recording and submission requirements must be verified separately.
 """
 
 import os
@@ -26,42 +25,40 @@ class VideoRecordManager:
         exporter: Optional[DocxExporter] = None,
     ):
         self.parser = parser or DocumentParser()
-        self.exporter = exporter or DocxExporter()
+        self.exporter = exporter or DocxExporter(self.parser.secure_dir)
         self.secure_dir = self.parser.secure_dir
 
     def generate_log(
         self,
         video_records: List[Dict[str, Any]],
-        project_name: str = "삼우씨엠 신축공사 CM현장",
-        chief_cm_name: str = "김수석 책임건설사업관리기술인",
-        contractor_name: str = "(주)대우건설",
+        project_name: str = "미입력 프로젝트",
+        chief_cm_name: str = "미입력 책임기술인",
+        contractor_name: str = "미입력 시공사",
     ) -> Dict[str, Any]:
-        """Compiles structural member inspection video records into an official register."""
+        """Compiles supplied video metadata into a review-required register draft."""
         now = datetime.now()
         date_str = now.strftime("%Y.%m.%d")
         doc_no = f"SWCM-VID-{now.strftime('%Y%m%d')}-01"
 
-        if not video_records:
-            video_records = [
-                {
-                    "video_file": "VID_20260829_B2F_SLAB_REBAR.mp4",
-                    "work_type": "지하 2층 바닥 슬래브 철근배근 검측",
-                    "record_date": "2026.08.29",
-                    "grid_location": "지하 2층 1구역 (X1~X5 / Y2~Y4)",
-                    "key_items": "상·하부근 유효피복 50mm 확보, 이음길이 40d 확인, 스페이서 1m 간격 배치",
-                    "inspector": chief_cm_name,
-                    "result": "적합 (PASS)",
-                },
-                {
-                    "video_file": "VID_20260829_B2F_CONC_POUR.mp4",
-                    "work_type": "지하 2층 바닥 슬래브 콘크리트 타설",
-                    "record_date": "2026.08.29",
-                    "grid_location": "지하 2층 1구역 (타설량 320m3)",
-                    "key_items": "레미콘 슬럼프/공기량 시험 입회, 봉형 진동기 적정 다짐(5~15초), 콜드조인트 방지",
-                    "inspector": chief_cm_name,
-                    "result": "적합 (PASS)",
-                }
-            ]
+        normalized_records: List[Dict[str, Any]] = []
+        missing_files = 0
+        allowed_video_exts = {".mp4", ".mov", ".avi", ".mkv", ".webm", ".m4v"}
+        for record in video_records:
+            normalized = dict(record)
+            video_name = str(normalized.get("video_file", "")).strip()
+            if not video_name or video_name != os.path.basename(video_name) or "/" in video_name or "\\" in video_name:
+                normalized["file_status"] = "INVALID_OR_MISSING"
+                missing_files += 1
+            elif Path(video_name).suffix.lower() not in allowed_video_exts:
+                normalized["file_status"] = "INVALID_TYPE"
+                missing_files += 1
+            elif not (self.secure_dir / video_name).is_file():
+                normalized["file_status"] = "MISSING"
+                missing_files += 1
+            else:
+                normalized["file_status"] = "FOUND"
+            normalized_records.append(normalized)
+        video_records = normalized_records
 
         # Markdown Table Generation
         md_lines = [
@@ -72,8 +69,8 @@ class VideoRecordManager:
             f"- **총괄책임자:** {chief_cm_name}",
             f"- **작성일자:** {date_str}\n",
             f"# 1. 동영상 기록관리 개요",
-            f"- **법적 근거:** 건설기술 진흥법 제62조, 지자체 공사현장 주요구조부 동영상 촬영 및 보관 지침",
-            f"- **촬영 대상:** 가설 흙막이, 기초 파일, 철근 배근, 구조체 콘크리트 타설, 내화구조 시공 등 은폐 부위 전 공종",
+            f"- **적용 근거:** 해당 사업의 발주조건·인허가조건·승인 촬영계획 확인 필요",
+            f"- **촬영 대상:** 승인 촬영계획에 기재된 대상 공종",
             f"- **총 등록 동영상:** **총 {len(video_records)}건**\n",
             f"# 2. 주요 구조부 동영상 촬영 상세 기록 대장",
             f"| No | 촬영 공종/부위 | 촬영일자 | 상세 위치(그리드) | 동영상 파일명 | 주요 검측 확인 사항 | 입회 감리원 | 검측 판정 |",
@@ -82,13 +79,18 @@ class VideoRecordManager:
 
         for idx, rec in enumerate(video_records, 1):
             md_lines.append(
-                f"| {idx} | **{rec.get('work_type', '-')}** | {rec.get('record_date', date_str)} | {rec.get('grid_location', '-')} | `{rec.get('video_file', '-')}` | {rec.get('key_items', '-')} | {rec.get('inspector', chief_cm_name)} | ✔ **{rec.get('result', '적합 (PASS)')}** |"
+                f"| {idx} | **{rec.get('work_type', '-')}** | {rec.get('record_date', '미입력')} | {rec.get('grid_location', '-')} | `{rec.get('video_file', '-')}` ({rec.get('file_status')}) | {rec.get('key_items', '-')} | {rec.get('inspector', '미입력')} | **{rec.get('result', '미입력 (REVIEW_REQUIRED)')}** |"
             )
 
+        if not video_records:
+            md_lines.append("| - | 입력 기록 없음 | - | - | - | - | - | **REVIEW_REQUIRED** |")
+
+        source_file_status = "ALL_FOUND" if video_records and missing_files == 0 else "MISSING_OR_INVALID"
+        evidence_status = "REVIEW_REQUIRED"
         md_lines.extend([
             f"\n# 3. 감리원 종합 확인 의견",
-            f"상기 주요 구조부 은폐 구간 및 타설 과정에 대한 동영상 촬영 기록을 전수 확인한 결과, "
-            f"설계도서 및 KCS 시공표준에 부합하게 시공되었음을 확인하며, 관련 영상 파일은 준공 후 인허가 관청 제출 및 영구 보관용 스토리지에 무단 변조 없이 정상 저장되었음을 확인함.",
+            f"입력 기록 {len(video_records)}건 중 원본 파일 확인 실패 {missing_files}건. "
+            f"영상 내용의 적합성은 이 목록만으로 자동 판정하지 않으며 책임기술인의 원본 확인이 필요함. **{evidence_status}**",
         ])
 
         report_md = "\n".join(md_lines)
@@ -108,6 +110,9 @@ class VideoRecordManager:
             "doc_no": doc_no,
             "total_video_records": len(video_records),
             "records": video_records,
+            "missing_video_files": missing_files,
+            "source_file_status": source_file_status,
+            "evidence_status": evidence_status,
             "docx_path": res.get("docx_path"),
             "md_path": res.get("md_path"),
             "source_anchor": f"{docx_filename} [동영상기록관리대장 본문]",
@@ -120,9 +125,9 @@ _video_manager = VideoRecordManager()
 
 def generate_video_recording_log(
     video_records_list: Optional[List[Dict[str, Any]]] = None,
-    project_name: str = "삼우씨엠 신축공사 CM현장",
-    chief_cm_name: str = "김수석 책임건설사업관리기술인",
-    contractor_name: str = "(주)대우건설",
+    project_name: str = "미입력 프로젝트",
+    chief_cm_name: str = "미입력 책임기술인",
+    contractor_name: str = "미입력 시공사",
 ) -> Dict[str, Any]:
     return _video_manager.generate_log(
         video_records=video_records_list or [],

@@ -1,13 +1,11 @@
-"""Official CM Letter & Outward Notice Generator (Module 8 - Official Letter Drafter)
+"""CM Letter & Outward Notice Draft Generator (Module 8)
 
-Generates official CM outward notification letters to Contractor or Owner:
+Generates review-required CM outward notification drafts to Contractor or Owner:
 - [수신: 시공사 현장소장, 참조: 발주처 감독관, 제목: OO 시공계획서 검토결과 통보 및 보완 지시의 건]
-- Formatted with official letterhead, document numbers, legal references, and signature blocks in Word (.docx) and Markdown (.md).
+- Formats document numbers and review signature placeholders in Word (.docx) and Markdown (.md).
 """
 
-import os
 from datetime import datetime
-from pathlib import Path
 from typing import Dict, Any, List, Optional
 
 import docx
@@ -15,28 +13,28 @@ from docx.shared import Inches, Pt, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_TABLE_ALIGNMENT
 
-from .doc_parser import SECURE_DATA_DIR, DocumentParser
-from .docx_exporter import set_cell_background, set_cell_margins
+from .doc_parser import DocumentParser
+from .docx_exporter import choose_output_stem, set_cell_background, set_cell_margins
 
 
 class OfficialLetterGenerator:
-    """Generates official CM outward notification letters."""
+    """Generates review-required CM outward notification drafts."""
 
     def __init__(self, parser: Optional[DocumentParser] = None):
         self.parser = parser or DocumentParser()
-        self.output_dir = SECURE_DATA_DIR
+        self.output_dir = self.parser.secure_dir
 
     def draft_notice(
         self,
         doc_title: str,
-        recipient: str = "(주)대우건설 현장소장",
+        recipient: str = "미입력 시공사 현장소장",
         reference: str = "발주처 감독관, 품질관리팀장",
         review_result_file: Optional[str] = None,
         action_items: Optional[List[str]] = None,
-        project_name: str = "삼우씨엠 신축공사 CM현장",
-        chief_cm_name: str = "김수석 책임건설사업관리기술인",
+        project_name: str = "미입력 프로젝트",
+        chief_cm_name: str = "미입력 책임기술인",
     ) -> Dict[str, Any]:
-        """Generates formal CM official notice document."""
+        """Generates a CM notice draft that requires authorized review before sending."""
         now = datetime.now()
         date_str = now.strftime("%Y년 %m월 %d일")
         doc_no = f"SWCM-NOTI-{now.strftime('%Y%m%d')}-01"
@@ -44,18 +42,34 @@ class OfficialLetterGenerator:
         # If review_result_file is provided, extract summary
         review_summary = ""
         if review_result_file:
-            try:
-                parsed = self.parser.parse_document(review_result_file)
-                review_summary = parsed.get("markdown", "")[:400]
-            except Exception as e:
-                review_summary = f"검토결과 파일({review_result_file}) 참조"
+            parsed = self.parser.parse_document(review_result_file)
+            review_text = parsed.get("markdown", "")
+            relevant_lines = [
+                line.strip()
+                for line in review_text.splitlines()
+                if any(key in line for key in ["종합 판정", "최종 판정", "검토 결과", "overall_verdict", "PASS", "FAIL"])
+            ]
+            verdict_evidence = " / ".join(relevant_lines[:5])
+            review_summary = verdict_evidence or review_text[:400].strip()
+        else:
+            verdict_evidence = ""
+            review_summary = "검토결과 근거파일 미제공"
+
+        evidence_upper = verdict_evidence.upper()
+        if "FAIL" in evidence_upper or "부적합" in verdict_evidence or "반려" in verdict_evidence:
+            notice_verdict = "보완 요청 초안 (FAIL 근거 확인)"
+            result_sentence = "근거 검토결과에 보완 또는 부적합 표현이 있습니다. 원문 확인 후 보완 요청 여부를 확정해야 합니다."
+        elif "PASS" in evidence_upper or "적합" in verdict_evidence or "승인" in verdict_evidence:
+            notice_verdict = "PASS 표현 확인 (승인 여부 검토 필요)"
+            result_sentence = "근거 검토결과에 PASS·적합·승인 표현이 있습니다. 원문과 승인권자를 확인한 후 발송해야 합니다."
+        else:
+            notice_verdict = "판정 확인 필요 (REVIEW_REQUIRED)"
+            result_sentence = "근거자료에서 확정 판정을 확인하지 못했으므로 책임기술인의 검토 후 발송해야 합니다."
 
         # Build Markdown content
-        actions = action_items or [
-            "1단 버팀보 안전율(Fs >= 1.25) 미달에 따른 부재 단면 상향(H-350 계열) 구조계산서 재작성",
-            "발주처 지시사항에 따른 지표 침하계 및 경사계 계측 주기(주 2회) 계획서 반영",
-            "보완된 시공계획서 및 관련 성적서를 기한 내 감리단에 재제출하여 승인을 득할 것",
-        ]
+        actions = list(action_items or [])
+        if not actions:
+            actions = ["세부 조치사항과 발송 여부는 첨부 원문을 확인하여 책임기술인이 확정할 것"]
 
         md_content = f"""# 주식회사 삼우씨엠건축사사무소
 **{project_name} 건설사업관리단**
@@ -70,15 +84,18 @@ class OfficialLetterGenerator:
 ---
 
 ### 1. 관련 근거
-1. 건설기술 진흥법 제62조 (안전관리계획의 수립 및 이행)
-2. 국가건설기준 KDS 21 30 00 (가설 흙막이 설계기준)
-3. 당 현장 공사도급계약조건 및 특기시방서
+1. 제출된 검토대상 도서 및 검토결과 파일
+2. 해당 공종의 승인 설계도서, 계약조건 및 특기시방서
 
 ### 2. 검토 결과 요약
-귀 사에서 제출한 시공계획서 및 수치계산서에 대한 3자 교차 검토(국가법령-KCSC기준-발주처시방) 결과, 일부 주요 구조부재의 허용 안전율 기준 미달 및 변경 지시사항 미반영이 확인되어 **[보완 후 재제출 (FAIL)]** 처리되었음을 통보합니다.
+**판정:** {notice_verdict}
+
+{result_sentence}
+
+**근거 발췌:** {review_summary or '검토결과 본문 없음'}
 
 ### 3. 감리단 시정 및 조치 요구사항
-귀 사는 아래 항목에 대하여 즉시 보완 조치를 시행하고, 수정된 시공계획서를 제출하여 감리원의 사전 승인을 득한 후 시공에 임하여 주시기 바랍니다.
+아래 조치사항은 입력된 내용에 한하여 통보하며, 미입력 사항은 임의로 생성하지 않습니다.
 
 """
         for a in actions:
@@ -93,8 +110,9 @@ class OfficialLetterGenerator:
 """
 
         # Generate Word (.docx)
-        docx_filename = f"공문_{doc_no}.docx"
-        md_filename = f"공문_{doc_no}.md"
+        output_stem = choose_output_stem(self.output_dir, f"공문_{doc_no}")
+        docx_filename = f"{output_stem}.docx"
+        md_filename = f"{output_stem}.md"
         docx_path = self.output_dir / docx_filename
         md_path = self.output_dir / md_filename
 
@@ -158,13 +176,13 @@ class OfficialLetterGenerator:
 
         # Body paragraphs
         p1 = doc.add_paragraph()
-        p1.add_run("1. 관련 근거\n   가. 건설기술 진흥법 제62조 (안전관리계획의 수립 및 이행)\n   나. 국가건설기준 KDS 21 30 00 (가설 흙막이 설계기준)\n   다. 당 현장 공사도급계약조건 및 특기시방서")
+        p1.add_run("1. 관련 근거\n   가. 제출된 검토대상 도서 및 검토결과 파일\n   나. 해당 공종의 승인 설계도서, 계약조건 및 특기시방서")
 
         p2 = doc.add_paragraph()
-        p2.add_run("2. 검토 결과 요약\n   귀 사에서 제출한 시공계획서 및 수치계산서에 대한 3자 교차 검토(국가법령-KCSC기준-발주처시방) 결과, 일부 주요 구조부재의 허용 안전율 기준 미달 및 변경 지시사항 미반영이 확인되어 [보완 후 재제출 (FAIL)] 처리되었음을 통보합니다.")
+        p2.add_run(f"2. 검토 결과 요약\n   판정: {notice_verdict}\n   {result_sentence}\n   근거 발췌: {review_summary or '검토결과 본문 없음'}")
 
         p3 = doc.add_paragraph()
-        p3.add_run("3. 감리단 시정 및 조치 요구사항\n   귀 사는 아래 항목에 대하여 즉시 보완 조치를 시행하고, 수정된 시공계획서를 제출하여 감리원의 사전 승인을 득한 후 시공에 임하여 주시기 바랍니다.\n")
+        p3.add_run("3. 감리단 시정 및 조치 요구사항\n   아래 조치사항은 입력된 내용에 한하여 통보하며, 미입력 사항은 임의로 생성하지 않습니다.\n")
         for a in actions:
             ap = doc.add_paragraph(style="List Bullet")
             ap.add_run(a).font.bold = True
@@ -188,6 +206,8 @@ class OfficialLetterGenerator:
             "doc_no": doc_no,
             "doc_title": doc_title,
             "recipient": recipient,
+            "notice_verdict": notice_verdict,
+            "review_source": review_result_file,
             "docx_path": str(docx_path),
             "md_path": str(md_path),
         }
@@ -199,12 +219,12 @@ _letter_generator = OfficialLetterGenerator()
 
 def draft_official_notice(
     doc_title: str,
-    recipient: str = "(주)대우건설 현장소장",
+    recipient: str = "미입력 시공사 현장소장",
     reference: str = "발주처 감독관, 품질관리팀장",
     review_result_file: Optional[str] = None,
     action_items: Optional[List[str]] = None,
-    project_name: str = "삼우씨엠 신축공사 CM현장",
-    chief_cm_name: str = "김수석 책임건설사업관리기술인",
+    project_name: str = "미입력 프로젝트",
+    chief_cm_name: str = "미입력 책임기술인",
 ) -> Dict[str, Any]:
     return _letter_generator.draft_notice(
         doc_title=doc_title,

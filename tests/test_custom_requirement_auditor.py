@@ -11,8 +11,9 @@ from samwoo_cm_bridge.core.custom_requirement_auditor import (
 def test_audit_spec_requirements():
     res = audit_custom_spec_requirements("sample_과업지시서_특기시방.hwpx")
     assert res["status"] == "SUCCESS"
-    assert res["total_requirements"] >= 3
-    assert res["received_count"] >= 1
+    assert res["total_requirements"] >= 1
+    assert res["received_count"] + res["missing_count"] == res["total_requirements"]
+    assert "PASS" not in res["overall_verdict"]
     assert "requirements_matrix" in res
     assert os.path.exists(res["docx_path"])
     assert os.path.exists(res["md_path"])

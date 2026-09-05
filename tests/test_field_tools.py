@@ -27,9 +27,10 @@ from samwoo_cm_bridge.core.inspection_ncr_generator import (
 
 def test_ocr_material_cert():
     res = parse_scanned_material_cert("sample_밀시트_SS275.jpg")
-    assert res["status"] == "SUCCESS"
-    assert "SS275" in res["certificate_metadata"]["material_grade"]
-    assert "적합" in res["ks_compliance_verdict"] or "PASS" in res["ks_compliance_verdict"]
+    assert res["status"] == "REVIEW_REQUIRED"
+    assert res["certificate_metadata"]["report_no"] is None
+    assert res["test_results"] == {}
+    assert "REVIEW_REQUIRED" in res["ks_compliance_verdict"]
 
 
 def test_daily_cm_log_generation():
@@ -69,7 +70,7 @@ def test_inspection_sheet_generator():
         contractor_spec="H-350x350x12x19 강재",
     )
     assert res["status"] == "SUCCESS"
-    assert "검측 승인" in res["final_verdict"] or "PASS" in res["final_verdict"]
+    assert "REVIEW_REQUIRED" in res["final_verdict"]
     assert os.path.exists(res["docx_path"])
 
 

@@ -28,3 +28,9 @@ def test_search_standards_voltage_drop():
     assert res["status"] == "SUCCESS"
     top_code = res["top_results"][0]["code"]
     assert "KEC 232" in top_code or "전기" in top_code
+
+
+def test_search_rejects_empty_query():
+    res = SemanticStandardSearcher().search_standards("   ")
+    assert res["status"] == "ERROR"
+    assert res["total_matches"] == 0

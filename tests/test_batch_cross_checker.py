@@ -13,9 +13,9 @@ def test_batch_cross_check_bundle():
     assert len(res["inspected_files"]) == 2
     assert "FAIL" in res["overall_verdict"] or res["total_discrepancies"] > 0
 
-    # Ensure critical safety factor deficiency is caught (Fs=1.07 < 1.25)
+    # The sheet's explicit FAIL must be surfaced without assuming a universal threshold.
     categories = [d["category"] for d in res["discrepancies"]]
-    assert any("안전율" in cat for cat in categories)
+    assert any("부적합" in cat for cat in categories)
 
 
 def test_extract_numeric_entities_regex():

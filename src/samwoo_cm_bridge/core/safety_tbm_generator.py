@@ -1,11 +1,11 @@
 """Daily TBM (Tool Box Meeting) & Safety Risk Assessment Generator (Module 14 - Safety TBM)
 
-Generates daily TBM safety meeting checklists and risk assessment tables:
-- Based on Industrial Safety and Health Act (산업안전보건법 제36조) & KCS Safety Standards
+Generates preliminary daily TBM safety meeting checklists and hazard candidates:
+- Site-specific laws, approved plans, permits, and manufacturer instructions must be checked separately
 - Maps daily tasks (굴착, 비계, 양중, 용접, 콘크리트 타설, 밀폐공간) to:
   * Hazard categories (추락, 협착, 붕괴, 화재, 낙하비래, 감전)
   * Risk Level (상/중/하)
-  * Mandatory pre-work safety measures & inspection checkpoints
+  * Candidate pre-work safety measures & inspection checkpoints
 """
 
 import os
@@ -31,7 +31,7 @@ class SafetyTBMGenerator:
                 {
                     "hazard": "굴착 사면 토사 붕괴 및 낙하",
                     "risk_level": "상 (HIGH)",
-                    "measures": "사면 기준 구배(1:1.0~1.5) 준수, 상부 토사 하중 재하 금지, 굴착 저면 배수로 확보",
+                    "measures": "승인 굴착계획의 사면·지보 기준 확인, 상부 추가하중 통제, 굴착 저면 배수계획 확인",
                     "checkpoint": "사면 균열/용수 여부 및 버팀보 선행 설치 확인",
                 },
                 {
@@ -43,15 +43,15 @@ class SafetyTBMGenerator:
             ],
             "비계": [
                 {
-                    "hazard": "고소 작업 중 작업자 추락 (2m 이상)",
+                    "hazard": "고소 작업 중 작업자 추락",
                     "risk_level": "상 (HIGH)",
-                    "measures": "안전난간(상부 90~120cm, 중간 45~60cm) 설치, 안전대 걸이시설 체결, 2개고리 죔줄 착용",
-                    "checkpoint": "안전대 체결 상태 및 작업발판 틈새 3cm 이하 밀실 설치",
+                    "measures": "현행 기준과 승인 안전계획에 맞는 안전난간·작업발판·추락방호 및 안전대 걸이시설 확인",
+                    "checkpoint": "안전대 체결 상태와 작업발판 고정·틈새·하중조건 확인",
                 },
                 {
                     "hazard": "비계 조립/해체 자재 낙하·비래",
                     "risk_level": "중 (MEDIUM)",
-                    "measures": "낙하물 방지망(10m 이내) 설치, 하부 출입통제 구획 설정, 자재 투하 금지",
+                    "measures": "승인 안전계획에 맞는 낙하물 방지시설과 하부 출입통제 구획 설치, 자재 투하 금지",
                     "checkpoint": "자재 인양용 달줄/달포대 사용 및 하부 신호수 배치",
                 },
             ],
@@ -59,13 +59,13 @@ class SafetyTBMGenerator:
                 {
                     "hazard": "크레인 양중 중 와이어로프 파단 및 중량물 낙하",
                     "risk_level": "상 (HIGH)",
-                    "measures": "와이어로프 꼬임/단선(10% 미만) 사전 검사, 샤클/슬링벨트 안전하중 준수",
+                    "measures": "와이어로프·샤클·슬링의 손상과 폐기기준을 제조사 지침 및 현행 기준에 따라 사전 확인",
                     "checkpoint": "2줄 걸이 체결 및 인양 하중계 지침 확인, 인양 경로 하부 통제",
                 },
                 {
                     "hazard": "크레인 아웃트리거 지반 침하에 의한 전도",
                     "risk_level": "상 (HIGH)",
-                    "measures": "아웃트리거 최대 인출 및 두께 50mm 이상 받침목(철판) 전면 포설",
+                    "measures": "장비 매뉴얼과 지반 검토에 따른 아웃트리거 전개·받침·지내력 확보",
                     "checkpoint": "아웃트리거 수평계 확인 및 연약지반 치환 상태",
                 },
             ],
@@ -73,7 +73,7 @@ class SafetyTBMGenerator:
                 {
                     "hazard": "용접 불티 비산에 의한 화재 및 가연물 폭발",
                     "risk_level": "상 (HIGH)",
-                    "measures": "작업 반경 11m 이내 가연물 제거, 불티 비산방지포 설치, 소화기 2대 전면 비치",
+                    "measures": "화기작업허가서의 이격·가연물 제거·불티 방호·소화설비 조건을 현장 확인",
                     "checkpoint": "전담 화재감시자 배치 및 화기작업허가서 승인 확인",
                 },
                 {
@@ -93,7 +93,7 @@ class SafetyTBMGenerator:
                 {
                     "hazard": "타설 하중에 의한 거푸집·동바리 붕괴",
                     "risk_level": "상 (HIGH)",
-                    "measures": "타설 전 동바리 수직도/수평연결재 검측 승인, 편심 타설 금지 및 1회 타설 높이 50cm 제한",
+                    "measures": "타설 전 동바리·연결재와 승인 타설순서·속도·높이·편심 방지 대책 확인",
                     "checkpoint": "타설 중 동바리 변형 감시원 상시 배치",
                 },
             ],
@@ -103,12 +103,18 @@ class SafetyTBMGenerator:
         self,
         today_tasks_list: List[str],
         date_str: Optional[str] = None,
-        project_name: str = "삼우씨엠 신축공사 CM현장",
-        tbm_leader: str = "현장 안전책임자 / 감리원 입회",
+        project_name: str = "미입력 프로젝트",
+        tbm_leader: str = "미입력 TBM 주관자",
     ) -> Dict[str, Any]:
         """Generates TBM safety meeting checklist for today's specific task list."""
         now = datetime.now()
         cur_date = date_str or now.strftime("%Y.%m.%d")
+        try:
+            datetime.strptime(cur_date, "%Y.%m.%d")
+        except ValueError as e:
+            raise ValueError("date_str은 YYYY.MM.DD 형식이어야 합니다.") from e
+        if not today_tasks_list or not all(isinstance(task, str) and task.strip() for task in today_tasks_list):
+            raise ValueError("today_tasks_list에는 하나 이상의 작업명이 필요합니다.")
 
         evaluated_risks: List[Dict[str, Any]] = []
 
@@ -148,6 +154,7 @@ class SafetyTBMGenerator:
             f"- **TBM 주관:** {tbm_leader}",
             f"- **금일 예정 공종:** {', '.join(today_tasks_list)}",
             f"- **중점 고위험(HIGH) 항목:** {high_risk_count}건 도출\n",
+            f"- **주의:** 아래 위험등급과 대책은 키워드 기반 후보이며, 현장 위험성평가와 승인 문서로 확정해야 합니다. **REVIEW_REQUIRED**\n",
             f"# 1. 작업별 유해·위험요인 및 안전대책 대비표",
             f"| 작업 공종 | 주요 유해·위험요인 | 위험등급 | 중점 안전관리대책 | TBM 점검 포인트 |",
             f"|---|---|---|---|---|",
@@ -160,9 +167,9 @@ class SafetyTBMGenerator:
             )
 
         md_lines.extend([
-            f"\n# 2. 작업 시작 전 10대 기본안전수칙 확인 서명",
-            f"1. 안전모 턱끈 조임 및 안전대 2개고리 체결 100% 이행",
-            f"2. 음주 작업자 및 고혈압 등 건강 이상자 당일 고소작업 투입 절대 금지",
+            f"\n# 2. 작업 시작 전 기본안전 확인 후보",
+            f"1. 작업별 개인보호구 선정·착용과 추락방호 체결 상태 확인",
+            f"2. 적법한 절차에 따른 작업 적합성·건강상태 확인 및 고위험 작업 배치 검토",
             f"3. 중장비 작업반경 내 신호수 외 일반 근로자 접근 금지",
         ])
 
@@ -184,6 +191,7 @@ class SafetyTBMGenerator:
             "tasks_analyzed": today_tasks_list,
             "total_risk_factors": len(evaluated_risks),
             "high_risk_count": high_risk_count,
+            "evidence_status": "REVIEW_REQUIRED",
             "evaluated_risks": evaluated_risks,
             "docx_path": res.get("docx_path"),
             "md_path": res.get("md_path"),
@@ -197,7 +205,7 @@ _safety_tbm_gen = SafetyTBMGenerator()
 def generate_daily_tbm_safety(
     today_tasks_list: List[str],
     date_str: Optional[str] = None,
-    project_name: str = "삼우씨엠 신축공사 CM현장",
+    project_name: str = "미입력 프로젝트",
 ) -> Dict[str, Any]:
     return _safety_tbm_gen.generate_tbm_sheet(
         today_tasks_list=today_tasks_list,

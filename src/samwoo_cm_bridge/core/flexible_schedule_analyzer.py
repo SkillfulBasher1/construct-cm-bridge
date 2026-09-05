@@ -75,13 +75,12 @@ class FlexibleScheduleAnalyzer:
             elif any(k in h_clean for k in ["대비", "증감", "지연", "Variance", "달성률"]):
                 col_map["variance"] = j
 
-        # Fallback index mapping if not found
-        if col_map["name"] == -1:
-            col_map["name"] = 1 if len(headers) > 1 else 0
-        if col_map["plan_pct"] == -1 and len(headers) > 4:
-            col_map["plan_pct"] = 4
-        if col_map["actual_pct"] == -1 and len(headers) > 5:
-            col_map["actual_pct"] = 5
+        missing_columns = [key for key in ["name", "plan_pct", "actual_pct"] if col_map[key] == -1]
+        if missing_columns:
+            return {
+                "status": "ERROR",
+                "error": f"필수 열을 찾을 수 없습니다: {', '.join(missing_columns)}",
+            }
 
         # 2. Extract and analyze rows
         activities: List[Dict[str, Any]] = []
@@ -91,17 +90,21 @@ class FlexibleScheduleAnalyzer:
         total_act_sum = 0.0
         row_count = 0
 
-        def parse_pct(val) -> float:
+        def parse_pct(val) -> Optional[float]:
             if val is None:
-                return 0.0
+                return None
             if isinstance(val, (int, float)):
-                return float(val) if val <= 1.0 and val > 0 else float(val)  # handle 0.85 as 85%
+                numeric = float(val)
+                parsed = numeric * 100.0 if 0.0 <= numeric <= 1.0 else numeric
+                return parsed if 0.0 <= parsed <= 100.0 else None
+            has_percent_sign = "%" in str(val)
             s = re.sub(r'[^0-9.-]', '', str(val))
             try:
                 v = float(s)
-                return v if v > 1.0 else v * 100.0
+                parsed = v if has_percent_sign or v > 1.0 else v * 100.0
+                return parsed if 0.0 <= parsed <= 100.0 else None
             except ValueError:
-                return 0.0
+                return None
 
         for row in rows[header_idx + 1:]:
             if not row or all(c is None for c in row):
@@ -111,8 +114,10 @@ class FlexibleScheduleAnalyzer:
             if not name or name in ["합계", "총계", "소계", "누계"]:
                 continue
 
-            p_pct = parse_pct(row[col_map["plan_pct"]]) if col_map["plan_pct"] != -1 and len(row) > col_map["plan_pct"] else 0.0
-            a_pct = parse_pct(row[col_map["actual_pct"]]) if col_map["actual_pct"] != -1 and len(row) > col_map["actual_pct"] else 0.0
+            p_pct = parse_pct(row[col_map["plan_pct"]]) if len(row) > col_map["plan_pct"] else None
+            a_pct = parse_pct(row[col_map["actual_pct"]]) if len(row) > col_map["actual_pct"] else None
+            if p_pct is None or a_pct is None:
+                continue
             var = a_pct - p_pct
 
             # Determine delay status
@@ -150,6 +155,9 @@ class FlexibleScheduleAnalyzer:
             total_plan_sum += p_pct
             total_act_sum += a_pct
             row_count += 1
+
+        if not activities:
+            return {"status": "ERROR", "error": "분석 가능한 공정 행을 찾을 수 없습니다."}
 
         avg_plan = round(total_plan_sum / row_count, 1) if row_count > 0 else 0.0
         avg_act = round(total_act_sum / row_count, 1) if row_count > 0 else 0.0

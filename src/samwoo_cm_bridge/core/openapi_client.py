@@ -8,8 +8,10 @@ Provides automatic offline caching and Mock fallback for robust judging and demo
 
 import os
 import json
+import html
 import logging
-import xml.etree.ElementTree as ET
+import re
+from defusedxml import ElementTree as ET
 from pathlib import Path
 from typing import Dict, Any, Optional
 
@@ -30,7 +32,7 @@ class OpenApiClient:
         # Read from environment variables if not provided
         self.law_oc = law_oc or os.getenv("LAW_API_OC", "")
         self.kcsc_key = kcsc_key or os.getenv("KCSC_API_KEY", "")
-        self.cache_dir = cache_dir or CACHE_DIR
+        self.cache_dir = Path(cache_dir) if cache_dir else CACHE_DIR
 
         self._load_local_mocks()
 
@@ -70,13 +72,23 @@ class OpenApiClient:
         """
         import requests
 
+        if not isinstance(law_name, str) or not law_name.strip():
+            return {
+                "status": "ERROR",
+                "source": "INPUT_VALIDATION",
+                "law_name": "",
+                "article_no": str(article_no).strip() if article_no is not None else "-",
+                "title": "입력 오류",
+                "content": "법령명은 비어 있을 수 없습니다.",
+                "source_anchor": "법령명 (미입력)",
+            }
         clean_name = law_name.strip()
         article_key = str(article_no).strip() if article_no else None
 
         # 1. Try real API if OC (User ID/API Key) is provided
         if self.law_oc:
             try:
-                url = "http://www.law.go.kr/DRF/lawSearch.do"
+                url = "https://www.law.go.kr/DRF/lawSearch.do"
                 params = {
                     "OC": self.law_oc,
                     "target": "law",
@@ -84,26 +96,53 @@ class OpenApiClient:
                     "query": clean_name,
                 }
                 resp = requests.get(url, params=params, timeout=5)
-                if resp.status_code == 200 and "<Law" in resp.text:
-                    root = ET.fromstring(resp.content)
+                resp.raise_for_status()
+                search_root = ET.fromstring(resp.content)
+                candidates = []
+                for law in search_root.findall(".//law"):
+                    result_name = (law.findtext("법령명한글") or "").strip()
+                    if clean_name == result_name or clean_name in result_name:
+                        candidates.append(law)
+                if candidates:
+                    selected = candidates[0]
+                    detail_params = {
+                        "OC": self.law_oc,
+                        "target": "law",
+                        "type": "XML",
+                    }
+                    mst = (selected.findtext("법령일련번호") or "").strip()
+                    law_id = (selected.findtext("법령ID") or "").strip()
+                    if mst:
+                        detail_params["MST"] = mst
+                    elif law_id:
+                        detail_params["ID"] = law_id
+                    else:
+                        raise ValueError("법령 검색 결과에 MST/ID가 없습니다.")
+                    if article_key:
+                        detail_params["JO"] = self._normalize_article_query(article_key)
+
+                    detail_resp = requests.get(
+                        "https://www.law.go.kr/DRF/lawService.do",
+                        params=detail_params,
+                        timeout=5,
+                    )
+                    detail_resp.raise_for_status()
+                    root = ET.fromstring(detail_resp.content)
                     articles_found = []
                     for article in root.findall(".//조문단위"):
-                        no_tag = article.find("조문번호")
-                        title_tag = article.find("조문제목")
+                        curr_no = (article.findtext("조문번호") or "").strip()
+                        curr_title = (article.findtext("조문제목") or "").strip()
                         content_tag = article.find("조문내용")
+                        curr_content = " ".join("".join(content_tag.itertext()).split()) if content_tag is not None else ""
 
-                        curr_no = no_tag.text.strip() if no_tag is not None and no_tag.text else ""
-                        curr_title = title_tag.text.strip() if title_tag is not None and title_tag.text else ""
-                        curr_content = content_tag.text.strip() if content_tag is not None and content_tag.text else ""
-
-                        if not article_key or curr_no == article_key or f"제{article_key}조" in curr_content:
+                        if not article_key or self._article_matches(curr_no, article_key):
                             articles_found.append({
                                 "article_no": curr_no,
                                 "title": curr_title,
                                 "content": curr_content,
                             })
 
-                    if articles_found:
+                    if articles_found and article_key:
                         target = articles_found[0]
                         return {
                             "status": "SUCCESS",
@@ -112,6 +151,21 @@ class OpenApiClient:
                             "article_no": target["article_no"] or article_key or "전체",
                             "title": target["title"],
                             "content": target["content"],
+                            "source_anchor": f"{clean_name} 제{target['article_no'] or article_key}조 (국가법령정보센터)",
+                        }
+                    if articles_found:
+                        all_content = "\n\n".join(
+                            f"[제{article['article_no']}조 ({article['title']})]\n{article['content']}"
+                            for article in articles_found
+                        )
+                        return {
+                            "status": "SUCCESS",
+                            "source": "REAL_OPENAPI",
+                            "law_name": clean_name,
+                            "article_no": "전체",
+                            "title": "관련 조항 모음",
+                            "content": all_content,
+                            "source_anchor": f"{clean_name} 전문 (국가법령정보센터)",
                         }
             except Exception as e:
                 logger.warning(f"Real Law API call failed, switching to local cache: {e}")
@@ -133,10 +187,7 @@ class OpenApiClient:
                         "content": art.get("content", ""),
                         "source_anchor": f"{law_title} 제{art_no}조 ({art.get('title', '')})",
                     }
-                elif articles:
-                    # Return all articles or the first one
-                    first_k = next(iter(articles))
-                    art = articles[first_k]
+                elif articles and not article_key:
                     all_content = "\n\n".join(
                         f"[제{v.get('article_no')}조 ({v.get('title')})]\n{v.get('content')}"
                         for v in articles.values()
@@ -146,7 +197,7 @@ class OpenApiClient:
                         "status": "SUCCESS",
                         "source": "LOCAL_CACHE_FALLBACK",
                         "law_name": law_title,
-                        "article_no": "전체" if not article_key else article_key,
+                        "article_no": "전체",
                         "title": "관련 조항 모음",
                         "content": all_content,
                         "source_anchor": f"{law_title} 전문",
@@ -162,6 +213,20 @@ class OpenApiClient:
             "source_anchor": f"{clean_name} (미확인)",
         }
 
+    @staticmethod
+    def _normalize_article_query(article_no: str) -> str:
+        """Converts '62' or '62의2' into the six-digit JO format used by lawService."""
+        match = re.fullmatch(r"\s*(\d{1,4})(?:\s*(?:의|-|\.)\s*(\d{1,2}))?\s*", article_no)
+        if not match:
+            raise ValueError(f"지원하지 않는 조문 번호 형식: {article_no}")
+        return f"{int(match.group(1)):04d}{int(match.group(2) or 0):02d}"
+
+    @staticmethod
+    def _article_matches(actual: str, requested: str) -> bool:
+        actual_numbers = re.findall(r"\d+", actual)
+        requested_numbers = re.findall(r"\d+", requested)
+        return actual_numbers[:2] == requested_numbers[:2]
+
     def fetch_kcsc_standard(self, standard_code: str) -> Dict[str, Any]:
         """Fetches KDS/KCS construction standard specifications.
 
@@ -173,32 +238,60 @@ class OpenApiClient:
         """
         import requests
 
+        if not isinstance(standard_code, str) or not standard_code.strip():
+            return {
+                "status": "ERROR",
+                "source": "INPUT_VALIDATION",
+                "standard_code": "",
+                "standard_name": "입력 오류",
+                "category": "-",
+                "discipline": "-",
+                "content": "건설기준 코드는 비어 있을 수 없습니다.",
+                "source_anchor": "건설기준 코드 (미입력)",
+            }
         clean_code = standard_code.strip().upper()
 
         # 1. Try real KCSC API if Key is provided
         if self.kcsc_key:
             try:
-                url = "https://www.kcsc.re.kr/openapi/standardDetail"
-                params = {"serviceKey": self.kcsc_key, "code": clean_code}
+                code_match = re.fullmatch(r"(KDS|KCS)\s*([0-9\s-]{6,})", clean_code)
+                if not code_match:
+                    raise ValueError("KCSC 실시간 조회는 KDS/KCS 6자리 코드만 지원합니다.")
+                code_type = code_match.group(1)
+                compact_code = "".join(re.findall(r"\d", code_match.group(2)))
+                if len(compact_code) != 6:
+                    raise ValueError("KDS/KCS 코드는 숫자 6자리여야 합니다.")
+                url = f"https://www.kcsc.re.kr/OpenApi/CodeViewer/{code_type}/{compact_code}"
+                params = {"key": self.kcsc_key}
                 resp = requests.get(url, params=params, timeout=5)
-                if resp.status_code == 200:
-                    data = resp.json()
+                resp.raise_for_status()
+                payload = resp.json()
+                data = payload[0] if isinstance(payload, list) and payload else payload
+                if isinstance(data, dict) and data.get("code"):
+                    sections = data.get("list") if isinstance(data.get("list"), list) else []
+                    content = "\n\n".join(
+                        f"### {self._strip_html(str(section.get('title', '')))}\n{self._strip_html(str(section.get('contents', '')))}"
+                        for section in sections
+                    )
                     return {
                         "status": "SUCCESS",
                         "source": "REAL_KCSC_API",
-                        "standard_code": clean_code,
-                        "standard_name": data.get("title", ""),
-                        "category": data.get("category", ""),
-                        "discipline": data.get("discipline", ""),
-                        "content": data.get("body", ""),
-                        "source_anchor": f"{clean_code} ({data.get('title', '')})",
+                        "standard_code": f"{code_type} {' '.join(compact_code[i:i + 2] for i in range(0, 6, 2))}",
+                        "standard_name": data.get("name", ""),
+                        "category": data.get("codeType", code_type),
+                        "discipline": "",
+                        "revision_year": data.get("version", ""),
+                        "update_date": data.get("updateDate", ""),
+                        "content": content,
+                        "source_anchor": f"{clean_code} ({data.get('name', '')})",
                     }
             except Exception as e:
                 logger.warning(f"KCSC API call failed, switching to local cache: {e}")
 
         # 2. Offline / Mock fallback
+        normalized_clean_code = re.sub(r"[\s-]", "", clean_code)
         for code, standard_data in self.kcsc_mock.items():
-            if clean_code in code.upper() or code.upper() in clean_code:
+            if normalized_clean_code == re.sub(r"[\s-]", "", code.upper()):
                 sections = standard_data.get("sections", {})
                 section_texts = []
                 for s_key, s_val in sections.items():
@@ -230,6 +323,12 @@ class OpenApiClient:
             "content": f"해당 국가건설기준({clean_code})의 본문 데이터를 찾을 수 없습니다.",
             "source_anchor": f"{clean_code} (미확인)",
         }
+
+    @staticmethod
+    def _strip_html(value: str) -> str:
+        value = re.sub(r"<br\s*/?>", "\n", value, flags=re.I)
+        value = re.sub(r"<[^>]+>", "", value)
+        return html.unescape(value).strip()
 
 
 # Module level singleton helpers

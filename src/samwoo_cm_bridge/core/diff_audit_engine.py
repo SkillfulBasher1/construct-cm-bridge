@@ -1,9 +1,9 @@
-"""Document Revision & Pay Application Audit Engine (Diff & Anti-Tampering Engine)
+"""Document Revision & Pay Application Change Review Engine
 
 Performs:
 1. Pay Application (기성내역서 / XLSX) Audit:
    - Cell coordinates, unit price changes, billing amounts, cumulative quantity caps
-   - Detection of unauthorized price hikes, math calculation errors, and hardcoded formula tampering
+   - Detection of price/quantity changes and arithmetic discrepancies for human review
 2. Document Revision (도서 HWPX/DOCX) Diff:
    - Clause-by-clause similarity comparison
    - Extraction of added, deleted, and modified specifications
@@ -40,7 +40,7 @@ class DiffAuditEngine:
         base_ext = os.path.splitext(base_file)[1].lower()
         target_ext = os.path.splitext(target_file)[1].lower()
 
-        is_excel = (base_ext in [".xlsx", ".xls"]) or (target_ext in [".xlsx", ".xls"]) or (file_category.upper() == "EXCEL")
+        is_excel = (base_ext in [".xlsx", ".xlsm"]) or (target_ext in [".xlsx", ".xlsm"]) or (file_category.upper() == "EXCEL")
 
         if is_excel:
             return self.audit_excel_diff(base_file, target_file)
@@ -64,6 +64,11 @@ class DiffAuditEngine:
         # Parse tables into structured records
         base_records, base_headers = self._parse_pay_table(base_rows)
         target_records, target_headers = self._parse_pay_table(target_rows)
+        if not base_records or not target_records:
+            return {
+                "status": "ERROR",
+                "error": "두 파일 모두에서 검증 가능한 기성 내역 행을 추출해야 합니다.",
+            }
 
         findings: List[Dict[str, Any]] = []
         verified_items: List[Dict[str, Any]] = []
@@ -82,22 +87,21 @@ class DiffAuditEngine:
             contract_qty = t_rec.get("contract_qty", 0.0)
             prev_qty = t_rec.get("prev_qty", 0.0)
 
-            # Recalculate true mathematical claim
-            true_claim = t_price * t_qty
-            total_recalculated_claim += true_claim
+            # Recalculate the amount represented by the extracted quantity and unit price.
+            recalculated_claim = t_price * t_qty
+            total_recalculated_claim += recalculated_claim
 
-            # 1. Math Calculation Tampering Check (수식 하드코딩 / 금액 위변조)
-            if abs(t_claim - true_claim) > 1.0:
-                diff_amount = t_claim - true_claim
+            if abs(t_claim - recalculated_claim) > 1.0:
+                diff_amount = t_claim - recalculated_claim
                 findings.append({
-                    "category": "수식 계산 위변조 / 금액 하드코딩 과대청구",
+                    "category": "수량×단가와 기재금액 불일치",
                     "item": f"{item_name} ({spec})",
                     "severity": "CRITICAL",
                     "description": (
                         f"기재된 청구금액({t_claim:,.0f}원)이 수량({t_qty:,.1f}) x 단가({t_price:,.0f}원) = "
-                        f"{true_claim:,.0f}원과 불일치 (차액: +{diff_amount:,.0f}원 과대청구)"
+                        f"{recalculated_claim:,.0f}원과 불일치 (차액: {diff_amount:+,.0f}원)"
                     ),
-                    "action": f"당회 청구금액을 검증값({true_claim:,.0f}원)으로 삭감 수정 지시",
+                    "action": f"당회 청구금액과 원 수식을 확인하고 재계산값({recalculated_claim:,.0f}원)과 대조",
                 })
 
             # Check against base record
@@ -105,14 +109,13 @@ class DiffAuditEngine:
                 b_rec = base_records[key]
                 b_price = b_rec.get("unit_price", 0.0)
 
-                # 2. Unauthorized Unit Price Increase (단가 임의 인상)
                 if t_price > b_price:
                     findings.append({
-                        "category": "도급 승인 단가 임의 인상",
+                        "category": "기준본 대비 단가 상승 변경",
                         "item": f"{item_name} ({spec})",
-                        "severity": "CRITICAL",
-                        "description": f"승인 단가({b_price:,.0f}원) 대비 임의 인상 단가({t_price:,.0f}원) 적용 (+{t_price - b_price:,.0f}원/단위)",
-                        "action": "승인 도급단가로 원복 삭감 조치",
+                        "severity": "HIGH",
+                        "description": f"기준본 단가({b_price:,.0f}원) 대비 대상본 단가({t_price:,.0f}원) 상승 (+{t_price - b_price:,.0f}원/단위)",
+                        "action": "설계변경·계약변경 승인 근거와 적용 시점을 확인",
                     })
                 elif t_price < b_price:
                     findings.append({
@@ -123,32 +126,30 @@ class DiffAuditEngine:
                         "action": "단가 변경 사유 확인",
                     })
 
-                # 3. Cumulative Quantity Exceeding Contract Quantity (도급 수량 초과 청구)
                 cumulative_qty = prev_qty + t_qty
                 if contract_qty > 0 and cumulative_qty > contract_qty:
                     excess_qty = cumulative_qty - contract_qty
                     findings.append({
-                        "category": "도급수량 초과 기성 청구",
+                        "category": "기재 도급수량 초과 후보",
                         "item": f"{item_name} ({spec})",
                         "severity": "HIGH",
                         "description": f"누계 기성수량({cumulative_qty:,.1f})이 도급수량({contract_qty:,.1f}) 초과 (초과량: {excess_qty:,.1f})",
-                        "action": "설계변경 승인 전 초과물량 기성 지급 유보",
+                        "action": "설계변경·물량변경 승인 근거와 누계 산식을 확인",
                     })
 
                 if not findings or not any(f["item"].startswith(item_name) for f in findings):
                     verified_items.append({
                         "item": f"{item_name} ({spec})",
-                        "status": "정상 기성 청구",
+                        "status": "자동 대조상 항목별 변경 미검출 (REVIEW_REQUIRED)",
                         "amount": t_claim,
                     })
             else:
-                # 4. Unapproved New Line Item (미승인 신규 비목)
                 findings.append({
-                    "category": "미승인 신규 비목 추가",
+                    "category": "기준본에 없는 신규 비목 추가",
                     "item": f"{item_name} ({spec})",
                     "severity": "MEDIUM",
-                    "description": f"전회 승인내역서에 존재하지 않는 신규 비목 청구 (청구액: {t_claim:,.0f}원)",
-                    "action": "설계변경 사전 승인 여부 검토 및 증빙서류 확인",
+                    "description": f"기준본에 존재하지 않는 신규 비목 (기재금액: {t_claim:,.0f}원)",
+                    "action": "설계변경·계약변경 승인 여부와 증빙서류 확인",
                 })
 
         # Check for Deleted/Omitted items
@@ -167,7 +168,11 @@ class DiffAuditEngine:
         audit_discrepancy = total_target_claim - total_recalculated_claim
 
         has_critical = any(f["severity"] == "CRITICAL" for f in findings)
-        verdict = "기성 청구 반려 및 삭감 수정 지시 (REJECT/MODIFY)" if has_critical else "기성 검토 적합 (PASS)"
+        verdict = (
+            "산술 불일치 수정 및 원본 검토 필요 (REVISE_REQUIRED)"
+            if has_critical
+            else ("변경·이상 항목 확인 필요 (REVIEW_REQUIRED)" if findings else "자동 대조 범위 내 이상 미검출 (REVIEW_REQUIRED)")
+        )
 
         return {
             "status": "SUCCESS",
@@ -182,6 +187,7 @@ class DiffAuditEngine:
                 "target_claim_total": total_target_claim,
                 "recalculated_true_total": total_recalculated_claim,
                 "claimed_increase_vs_base": amount_difference,
+                "arithmetic_discrepancy_amount": audit_discrepancy,
                 "unauthorized_overbilling_amount": audit_discrepancy,
             },
             "findings": findings,
@@ -293,7 +299,10 @@ class DiffAuditEngine:
             if tag == "equal":
                 continue
             elif tag == "replace":
-                for b_idx, t_idx in zip(range(i1, i2), range(j1, j2)):
+                paired_count = min(i2 - i1, j2 - j1)
+                for offset in range(paired_count):
+                    b_idx = i1 + offset
+                    t_idx = j1 + offset
                     b_line = base_lines[b_idx]
                     t_line = target_lines[t_idx]
 
@@ -313,7 +322,7 @@ class DiffAuditEngine:
                             try:
                                 if float(t_nums[0]) < float(b_nums[0]) and ("안전율" in b_line or "Fs" in b_line or "두께" in b_line):
                                     severity = "CRITICAL"
-                                    risk_desc = f"설계 안전 기준 임의 완화/하향 ({b_nums[0]} -> {t_nums[0]})"
+                                    risk_desc = f"설계 기준 수치 하향 가능성 ({b_nums[0]} -> {t_nums[0]})"
                             except Exception:
                                 pass
 
@@ -323,6 +332,22 @@ class DiffAuditEngine:
                         "description": risk_desc,
                         "base_excerpt": b_line,
                         "target_excerpt": t_line,
+                    })
+                for b_idx in range(i1 + paired_count, i2):
+                    diff_entries.append({
+                        "change_type": "DELETED",
+                        "severity": "HIGH" if any(k in base_lines[b_idx] for k in ["안전", "시방", "기준", "품질"]) else "MEDIUM",
+                        "description": "치환 과정에서 기존 문구 삭제",
+                        "base_excerpt": base_lines[b_idx],
+                        "target_excerpt": "",
+                    })
+                for t_idx in range(j1 + paired_count, j2):
+                    diff_entries.append({
+                        "change_type": "ADDED",
+                        "severity": "MEDIUM",
+                        "description": "치환 과정에서 신규 문구 추가",
+                        "base_excerpt": "",
+                        "target_excerpt": target_lines[t_idx],
                     })
             elif tag == "delete":
                 for b_idx in range(i1, i2):
@@ -344,7 +369,7 @@ class DiffAuditEngine:
                     })
 
         has_critical = any(d["severity"] == "CRITICAL" for d in diff_entries)
-        verdict = "기준 임의 완화 및 보완 지시 (REVISE_REQUIRED)" if has_critical else "문서 변경점 검토 완료 (REVIEWED)"
+        verdict = "기준 수치 하향 가능성 검토 필요 (REVISE_REQUIRED)" if has_critical else "문서 변경점 추출 완료 (REVIEW_REQUIRED)"
 
         return {
             "status": "SUCCESS",

@@ -31,15 +31,15 @@ class CustomRequirementAuditor:
         exporter: Optional[DocxExporter] = None,
     ):
         self.parser = parser or DocumentParser()
-        self.exporter = exporter or DocxExporter()
+        self.exporter = exporter or DocxExporter(self.parser.secure_dir)
         self.secure_dir = self.parser.secure_dir
 
     def audit_spec_requirements(
         self,
         spec_file: str,
         target_work_type: Optional[str] = None,
-        project_name: str = "삼우씨엠 신축공사 CM현장",
-        chief_cm_name: str = "김수석 책임건설사업관리기술인",
+        project_name: str = "미입력 프로젝트",
+        chief_cm_name: str = "미입력 책임기술인",
     ) -> Dict[str, Any]:
         """Parses spec_file for mandatory submission clauses and cross-checks with local files."""
         parsed = self.parser.parse_document(spec_file)
@@ -47,7 +47,7 @@ class CustomRequirementAuditor:
         chunks = parsed.get("chunks", [])
 
         # Get list of existing local files
-        local_files = [f["filename"] for f in self.parser.list_files()]
+        local_files = [f["filename"] for f in self.parser.list_files() if f["filename"] != spec_file]
 
         # 1. Extract requirement sentences
         requirements: List[Dict[str, Any]] = []
@@ -63,17 +63,6 @@ class CustomRequirementAuditor:
                 if len(c_text) > 15 and c_text not in raw_candidates:
                     raw_candidates.append(c_text)
 
-        standard_defaults = [
-            "시공사는 건설기술 진흥법 제62조에 따른 안전관리계획서를 착공 전 제출하여 감리원의 승인을 득하여야 한다.",
-            "가설 흙막이 지보공 구조계산서 및 부재별 안전율 산출 근거를 제출하여야 한다.",
-            "가설 강재는 KS 정품 밀시트(Mill Sheet) 및 공장 시험성적서를 자재 반입 전 제출하여야 한다.",
-            "지하수위계 및 인접건물 경사계 일일 자동계측 계획서를 작성하여 제출하여야 한다.",
-        ]
-
-        for s_def in standard_defaults:
-            if not any(s_def[:15] in rc for rc in raw_candidates):
-                raw_candidates.append(s_def)
-
         # 2. Map requirements to existing files and evaluate status
         received_count = 0
         missing_count = 0
@@ -86,22 +75,22 @@ class CustomRequirementAuditor:
 
             if any(k in sentence for k in ["안전관리계획", "건진법"]):
                 doc_type = "안전관리계획서"
-                expected_keywords = ["안전", "과업지시서", "시방", "plan"]
+                expected_keywords = ["안전관리계획", "safety_plan"]
             elif any(k in sentence for k in ["구조계산서", "계산서", "안전율"]):
                 doc_type = "구조/수치계산서"
-                expected_keywords = ["계산서", "calc", "xlsx", "토목"]
+                expected_keywords = ["계산서", "calc"]
             elif any(k in sentence for k in ["밀시트", "성적서", "Mill Sheet", "KS"]):
                 doc_type = "자재 시험성적서/밀시트"
-                expected_keywords = ["밀시트", "성적서", "cert", "jpg", "pdf"]
+                expected_keywords = ["밀시트", "성적서", "cert"]
             elif any(k in sentence for k in ["계측", "수위계", "경사계"]):
                 doc_type = "계측관리계획서"
-                expected_keywords = ["계측", "공문", "hwpx", "특기시방"]
+                expected_keywords = ["계측"]
             elif any(k in sentence for k in ["배합설계", "레미콘"]):
                 doc_type = "레미콘 공장 배합표"
                 expected_keywords = ["배합", "콘크리트", "성적서"]
             else:
                 doc_type = "세부 시공계획서"
-                expected_keywords = ["시공계획서", "단열", "docx", "hwpx"]
+                expected_keywords = ["시공계획서", "단열", "마감", "방수"]
 
             # Search in local files
             matched_file = None
@@ -118,15 +107,9 @@ class CustomRequirementAuditor:
                     break
 
             if matched_file:
-                # Check if it needs modification
-                if "계산서" in doc_type and "가설흙막이" in matched_file:
-                    status = "보완필요 (MODIFY)"
-                    modify_count += 1
-                    remark = f"제출 파일({matched_file}) 확인되었으나 1단 버팀보 안전율(1.07) 미달로 수정본 제출 필요"
-                else:
-                    status = "접수완료 (RECEIVED)"
-                    received_count += 1
-                    remark = f"제출 파일({matched_file}) 정상 접수 및 감리 검토 적합"
+                status = "접수확인 (RECEIVED_REVIEW_REQUIRED)"
+                received_count += 1
+                remark = f"파일명 기준 제출 후보({matched_file}) 확인. 내용·최신본·승인 여부는 별도 검토 필요"
             else:
                 status = "미접수·누락 (MISSING)"
                 missing_count += 1
@@ -143,9 +126,12 @@ class CustomRequirementAuditor:
             })
 
         total_reqs = len(requirements)
-        overall_verdict = (
-            "제출도서 누락 및 보완 지시 (REVISE_REQUIRED)" if missing_count > 0 or modify_count > 0 else "제출도서 일체 접수 완료 (PASS)"
-        )
+        if not requirements:
+            overall_verdict = "시방서에서 제출 요건을 추출하지 못함 (REVIEW_REQUIRED)"
+        elif missing_count > 0:
+            overall_verdict = "제출도서 누락 및 보완 지시 (REVISE_REQUIRED)"
+        else:
+            overall_verdict = "파일 접수 후보 확인, 내용 검토 필요 (REVIEW_REQUIRED)"
 
         # 3. Generate Word Document (.docx) & Markdown (.md)
         now = datetime.now()
@@ -207,7 +193,7 @@ _req_auditor = CustomRequirementAuditor()
 def audit_custom_spec_requirements(
     spec_file: str,
     target_work_type: Optional[str] = None,
-    project_name: str = "삼우씨엠 신축공사 CM현장",
+    project_name: str = "미입력 프로젝트",
 ) -> Dict[str, Any]:
     return _req_auditor.audit_spec_requirements(
         spec_file=spec_file,

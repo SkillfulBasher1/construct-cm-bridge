@@ -189,7 +189,7 @@ class BatchCrossChecker:
             fname, secs = next(iter(all_steels.items()))
             matches.append(f"[{fname}] 부재 규격 추출: {secs}")
 
-        # 2) 안전율(Fs) 대조 및 최소 기준 판정 (Safety Factors)
+        # 2) Extract safety factors. Applicability thresholds must come from supplied evidence.
         all_fs = {
             fname: data.get("safety_factors", [])
             for fname, data in extracted_bundle.items()
@@ -197,16 +197,15 @@ class BatchCrossChecker:
         }
         for fname, fs_list in all_fs.items():
             for fs in fs_list:
-                # If calculated safety factor is below minimum threshold (1.25 for standard temporary structures)
-                if fs < 1.25:
+                if fs <= 0:
                     discrepancies.append({
-                        "category": "설계 안전율(Fs) 기준 미달",
-                        "description": f"[{fname}] 계산 안전율 {fs} 확인 (법적/발주처 최소 요구치 1.25 미달)",
+                        "category": "설계 안전율(Fs) 비정상 값",
+                        "description": f"[{fname}] 0 이하 안전율 {fs} 검출",
                         "severity": "CRITICAL",
-                        "action": "해당 단면의 단면력 재계산 또는 단면 보강 후 수정 제출 지시",
+                        "action": "원 계산식·단위·입력값을 확인하고 재산정",
                     })
                 else:
-                    matches.append(f"[{fname}] 안전율 Fs={fs} (>= 1.25 만족)")
+                    matches.append(f"[{fname}] 안전율 Fs={fs} 추출 (적용 기준과 별도 대조 필요)")
 
         # 3) 계측 관리 주기 대조 (Monitoring Frequency)
         all_mon = {
@@ -257,12 +256,12 @@ class BatchCrossChecker:
         # Overall verdict determination
         has_critical = any(d["severity"] == "CRITICAL" for d in discrepancies)
         has_high = any(d["severity"] == "HIGH" for d in discrepancies)
-        overall_status = "REJECT_OR_MODIFY" if (has_critical or has_high) else "APPROVE"
+        overall_status = "REJECT_OR_MODIFY" if (has_critical or has_high) else "REVIEW_REQUIRED"
 
         return {
             "status": "SUCCESS",
             "inspected_files": filenames,
-            "overall_verdict": "보완 후 재제출 (FAIL)" if overall_status == "REJECT_OR_MODIFY" else "적합 (PASS)",
+            "overall_verdict": "보완 후 재제출 (FAIL)" if overall_status == "REJECT_OR_MODIFY" else "자동 검출 범위 외 수동검토 필요 (REVIEW_REQUIRED)",
             "total_discrepancies": len(discrepancies),
             "discrepancies": discrepancies,
             "verified_matches": matches,

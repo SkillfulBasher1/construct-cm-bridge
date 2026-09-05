@@ -10,6 +10,7 @@ Generates official Samwoo CM Daily Supervision Log (.docx / .md) with smart dail
 import os
 import json
 import logging
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Union
@@ -72,7 +73,7 @@ class DailyLogGenerator:
 
         md_lines.append(f"\n## 2. 감리단 검측 및 품질/안전 실적 ({len(session_data.get('inspections', []))}건)")
         for insp in session_data.get("inspections", []):
-            md_lines.append(f"- [{insp.get('time', '-')}] {insp.get('item', '')} ➔ **{insp.get('result', 'PASS')}** ({insp.get('remark', '')})")
+            md_lines.append(f"- [{insp.get('time', '-')}] {insp.get('item', '')} ➔ **{insp.get('result', '미입력')}** ({insp.get('remark', '')})")
 
         with open(md_path, "w", encoding="utf-8") as f:
             f.write("\n".join(md_lines))
@@ -80,20 +81,33 @@ class DailyLogGenerator:
     def generate_daily_log(
         self,
         date_str: Optional[str] = None,
-        weather: str = "맑음 (기온: 24.5℃, 강수량: 0mm)",
+        weather: str = "미입력",
         activities: Optional[List[str]] = None,
         inspections: Optional[List[Dict[str, str]]] = None,
         workers_count: Optional[Dict[str, int]] = None,
         equipment_count: Optional[Dict[str, int]] = None,
         key_directives: Optional[List[str]] = None,
-        project_name: str = "삼우씨엠 신축공사 CM현장",
-        chief_cm_name: str = "김수석 책임건설사업관리기술인",
+        project_name: str = "미입력 프로젝트",
+        chief_cm_name: str = "미입력 책임기술인",
         force_overwrite: bool = False,
     ) -> Dict[str, Any]:
         """Generates or appends to standard Daily CM Log in DOCX and Markdown."""
         now = datetime.now()
         cur_date = date_str or now.strftime("%Y.%m.%d")
-        clean_date_tag = cur_date.replace(".", "").replace("-", "").replace(" ", "")
+        date_match = re.fullmatch(r"(\d{4})[.-](\d{2})[.-](\d{2})", cur_date.strip())
+        if not date_match:
+            raise ValueError("date_str은 YYYY.MM.DD 또는 YYYY-MM-DD 형식이어야 합니다.")
+        try:
+            parsed_date = datetime.strptime(".".join(date_match.groups()), "%Y.%m.%d")
+        except ValueError as e:
+            raise ValueError(f"유효하지 않은 일자입니다: {cur_date}") from e
+        cur_date = parsed_date.strftime("%Y.%m.%d")
+        clean_date_tag = parsed_date.strftime("%Y%m%d")
+
+        for label, counts in (("workers_count", workers_count), ("equipment_count", equipment_count)):
+            for name, count in (counts or {}).items():
+                if isinstance(count, bool) or not isinstance(count, int) or count < 0:
+                    raise ValueError(f"{label}의 '{name}' 값은 0 이상의 정수여야 합니다.")
         doc_no = f"SWCM-DL-{clean_date_tag}-01"
 
         # Check existing session buffer
@@ -133,7 +147,7 @@ class DailyLogGenerator:
                         merged_directives.append(d)
 
             # 6. Update Weather if non-default provided
-            merged_weather = weather if "맑음 (기온: 24.5℃, 강수량: 0mm)" != weather else existing_session.get("weather", weather)
+            merged_weather = weather if weather != "미입력" else existing_session.get("weather", weather)
 
             acts = merged_acts
             insps = merged_insps
@@ -143,28 +157,11 @@ class DailyLogGenerator:
             weather = merged_weather
             session_merged = True
         else:
-            acts = activities or [
-                "지하 2층 1구역 토사 굴착 및 반출 (백호 0.8m³ 2대, 덤프 15t 8대)",
-                "지하 2층 가설 흙막이 1단 버팀보(H-350x350) 설치 및 프리스트레스 긴장 작업",
-                "지하 1층 코어부 벽체 철근 배근 및 스페이서 설치",
-                "레미콘 타설용 펌프카 셋업 및 현장 품질시험 준비",
-            ]
-            insps = inspections or [
-                {"time": "10:30", "item": "지하 2층 1단 버팀보 설치 검측", "result": "적합 (PASS)", "remark": "H-350 규격 및 볼트 조임 토크 확인"},
-                {"time": "14:00", "item": "지하 1층 벽체 철근 배근 검측", "result": "조건부 적합", "remark": "피복두께 미달 부위 스페이서 추가 설치 지시"},
-                {"time": "16:30", "item": "일일 안전 TBM 순찰 및 계측기 확인", "result": "양호", "remark": "경사계 변위 정상 범위 (1/1200)"},
-            ]
-            workers = workers_count or {
-                "보통인부": 8, "형틀목공": 12, "철근공": 10, "비계공": 4, "용접공": 2, "장비운전원": 6
-            }
-            equip = equipment_count or {
-                "백호 (0.8m³)": 2, "덤프트럭 (15t)": 8, "크레인 (50t)": 1, "펌프카 (36m)": 1
-            }
-            directives = key_directives or [
-                "지하 2층 2구역 굴착 시 과굴착 금지 및 안전관리계획 절차 엄수",
-                "익일 오전 09:00 레미콘 타설 전 슬럼프/공기량/염화물 전수 입회검사 실시 예정",
-                "인접 도로변 경사계 데이터 일일 보고서 제출 확인",
-            ]
+            acts = list(activities or [])
+            insps = list(inspections or [])
+            workers = dict(workers_count or {})
+            equip = dict(equipment_count or {})
+            directives = list(key_directives or [])
 
         total_workers = sum(workers.values())
         total_equip = sum(equip.values())
@@ -204,7 +201,7 @@ class DailyLogGenerator:
             f"|---|---|---|---|",
         ])
         for insp in insps:
-            md_lines.append(f"| {insp.get('time', '-')} | {insp.get('item', '')} | **{insp.get('result', 'PASS')}** | {insp.get('remark', '')} |")
+            md_lines.append(f"| {insp.get('time', '-')} | {insp.get('item', '')} | **{insp.get('result', '미입력')}** | {insp.get('remark', '')} |")
 
         md_lines.extend([
             f"\n# 3. 금일 현장 투입 인원 및 장비 집계",
@@ -226,6 +223,7 @@ class DailyLogGenerator:
             reviewer_name=chief_cm_name,
             discipline="건설사업관리(CM) 일일업무",
             doc_no=doc_no,
+            overwrite=True,
         )
 
         return {
@@ -251,14 +249,14 @@ _daily_log_gen = DailyLogGenerator()
 
 def generate_daily_cm_log(
     date_str: Optional[str] = None,
-    weather: str = "맑음 (기온: 24.5℃, 강수량: 0mm)",
+    weather: str = "미입력",
     activities: Optional[List[str]] = None,
     inspections: Optional[List[Dict[str, str]]] = None,
     workers_count: Optional[Dict[str, int]] = None,
     equipment_count: Optional[Dict[str, int]] = None,
     key_directives: Optional[List[str]] = None,
-    project_name: str = "삼우씨엠 신축공사 CM현장",
-    chief_cm_name: str = "김수석 책임건설사업관리기술인",
+    project_name: str = "미입력 프로젝트",
+    chief_cm_name: str = "미입력 책임기술인",
     force_overwrite: bool = False,
 ) -> Dict[str, Any]:
     return _daily_log_gen.generate_daily_log(

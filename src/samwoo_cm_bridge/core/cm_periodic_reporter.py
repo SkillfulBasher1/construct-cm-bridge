@@ -24,13 +24,20 @@ class PeriodicReporter:
         self,
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
-        project_name: str = "삼우씨엠 신축공사 CM현장",
-        chief_cm_name: str = "김수석 책임건설사업관리기술인",
+        project_name: str = "미입력 프로젝트",
+        chief_cm_name: str = "미입력 책임기술인",
     ) -> Dict[str, Any]:
         """Synthesizes weekly report from project memory and recent reviews."""
         now = datetime.now()
         s_date = start_date or now.strftime("%Y.%m.%d")
         e_date = end_date or now.strftime("%Y.%m.%d")
+        try:
+            start_dt = datetime.strptime(s_date, "%Y.%m.%d")
+            end_dt = datetime.strptime(e_date, "%Y.%m.%d")
+        except ValueError as e:
+            raise ValueError("start_date와 end_date는 YYYY.MM.DD 형식이어야 합니다.") from e
+        if start_dt > end_dt:
+            raise ValueError("start_date는 end_date보다 늦을 수 없습니다.")
         doc_no = f"SWCM-WR-{now.strftime('%Y%m%d')}-01"
 
         # Fetch instructions and action items from project_memory
@@ -38,20 +45,16 @@ class PeriodicReporter:
 
         # Build Markdown content
         md_lines = [
-            f"# 1. 주간 CM 업무 개요",
+            "# 1. 주간 CM 업무 개요",
             f"- **사업명:** {project_name}",
             f"- **보고 기간:** {s_date} ~ {e_date}",
             f"- **작성자:** {chief_cm_name}",
-            f"- **금주 주요 공정:** 지하 2층 토공사 및 가설 흙막이 지보공 설치, 1차 설계변경 검토\n",
-            f"# 2. 주요 서류 기술검토 및 3자 교차검증 실적",
-            f"| 일자 | 대상 도서명 | 검토 공종 | 3자 검토 결과 | 조치 사항 |",
-            f"|---|---|---|---|---|",
-            f"| {s_date} | 가설흙막이 구조계산서 | 토목/가설 | **부적합 (FAIL)** | 1단 버팀보 안전율(Fs=1.07 < 1.25) 미달로 단면증대 보완지시 |",
-            f"| {s_date} | 옥내소화전 및 펌프계산서 | 기계/소방 | **적합 (PASS)** | 유효저수량 15.0m³ 및 정격양정 확보 확인 후 승인 |",
-            f"| {s_date} | 지하주차장 전압강하계산서 | 전기 | **적합 (PASS)** | 선로 전압강하율 1.19% (기준 3.0% 이하) 충족 확인 |\n",
-            f"# 3. 발주처 지시사항 조치 및 이행 현황 관리표",
-            f"| 문서번호 | 시행일자 | 발신처 | 핵심 지시내용 | 조치 기한 | 이행 상태 |",
-            f"|---|---|---|---|---|---|",
+            "- **금주 주요 공정:** 입력 자료 없음 (현장 실적 입력 필요)\n",
+            "# 2. 주요 서류 기술검토 및 3자 교차검증 실적",
+            "- 연동된 기술검토 실적 자료가 없습니다. 검토결과를 별도 확인·입력해야 합니다.\n",
+            "# 3. 발주처 지시사항 조치 및 이행 현황 관리표",
+            "| 문서번호 | 시행일자 | 발신처 | 핵심 지시내용 | 조치 기한 | 이행 상태 |",
+            "|---|---|---|---|---|---|",
         ]
 
         if instructions:
@@ -61,18 +64,13 @@ class PeriodicReporter:
                     f"| {inst.get('doc_no')} | {inst.get('doc_date')} | {inst.get('issuer')} | {inst.get('subject')} | {inst.get('deadline')} | {status_badge} |"
                 )
         else:
-            md_lines.append(
-                f"| SW-ORD-2026-0815 | {s_date} | (주)삼우글로벌 | 램프구간 버팀보 규격상향(H-350) 및 계측 주2회 강화 | {e_date} | **조치 진행중 (PENDING)** |"
-            )
+            md_lines.append("| - | - | - | 색인된 발주처 지시사항 없음 | - | **입력 필요 (REVIEW_REQUIRED)** |")
 
         md_lines.extend([
-            f"\n# 4. 설계변경 및 기성 관리 현황",
-            f"- **기성내역 감사 실적:** 제2회 기성 청구내역서 단가 임의 인상(+1,300만원) 및 수식 하드코딩 과대청구(+550만원) 적발 후 감리단 삭감 조치 완료.",
-            f"- **설계변경(VE) 누적 관리:** 제1회 설계변경(램프구간 단면증대 및 계측비) 100% 반영 검증 완료.\n",
-            f"# 5. 차주 주요 감리업무 추진 계획",
-            f"1. 보완된 가설 흙막이 시공계획서(H-350 적용본) 재검토 및 최종 승인 처리",
-            f"2. 인접 구조물 지표변위 및 경사계 주 2회 계측데이터 현장 교차 대조 확인",
-            f"3. 지하 2층 골조공사 레미콘 공장 배합설계 사전 자재검수",
+            "\n# 4. 설계변경 및 기성 관리 현황",
+            "- 연동된 설계변경·기성 감사 자료 없음 (자료 입력 및 검토 필요).\n",
+            "# 5. 차주 주요 감리업무 추진 계획",
+            "- 입력된 추진 계획 없음 (책임기술인 확인 후 작성 필요).",
         ])
 
         report_md = "\n".join(md_lines)
@@ -95,6 +93,7 @@ class PeriodicReporter:
             "doc_no": doc_no,
             "period": f"{s_date} ~ {e_date}",
             "project_name": project_name,
+            "evidence_status": "PARTIAL" if instructions else "NO_LINKED_EVIDENCE",
         }
 
 
@@ -105,7 +104,7 @@ _periodic_reporter = PeriodicReporter()
 def generate_weekly_cm_report(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
-    project_name: str = "삼우씨엠 신축공사 CM현장",
-    chief_cm_name: str = "김수석 책임건설사업관리기술인",
+    project_name: str = "미입력 프로젝트",
+    chief_cm_name: str = "미입력 책임기술인",
 ) -> Dict[str, Any]:
     return _periodic_reporter.generate_weekly_report(start_date, end_date, project_name, chief_cm_name)

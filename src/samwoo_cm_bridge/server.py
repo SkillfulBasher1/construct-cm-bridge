@@ -39,6 +39,11 @@ from .core.cm_final_report_assembler import assemble_cm_final_report as _assembl
 from .core.fire_hazard_conflict_detector import check_concurrent_work_fire_hazard as _check_fire_hazard
 from .core.video_record_manager import generate_video_recording_log as _gen_video_log
 from .core.weather_stop_work_trigger import issue_weather_stop_work_order as _issue_weather_stop
+from .core.project_memory_engine import (
+    index_project_instruction as _index_instruction,
+    search_project_memory as _search_memory,
+)
+from .core.design_change_tracker import track_design_changes as _track_changes
 
 logger = logging.getLogger("samwoo_cm_bridge")
 
@@ -48,15 +53,15 @@ mcp = FastMCP(
     instructions=(
         "Samwoo-CM-Bridge는 삼우씨엠 건설사업관리(CM) 3자 교차 검토(국가법령-KCSC기준-시공사제출서류) "
         "엔진입니다. 로컬 보안 격리 폴더 내 문서를 읽고, 국가법령/KCSC 기준을 조회하며, "
-        "파이썬 기반의 엄밀한 수치 검산(Zero-Hallucination)을 거쳐 삼우씨엠 표준 감리의견서를 자동 생성합니다."
+        "파이썬 기반 수치 검산과 근거 추적을 수행하고 REVIEW_REQUIRED 상태를 포함한 검토 초안을 생성합니다."
     ),
 )
 
 
 @mcp.tool()
 def fetch_national_law(law_name: str, article_no: str = "") -> str:
-    """국가법령정보센터(law.go.kr) REST API를 호출하여 최신 개정 법률·시행령·시행규칙 조문을 실시간 검색합니다.
-    API 키 미설정 또는 오프라인 환경에서는 정밀 로컬 캐시/Mock 데이터를 자동으로 반환합니다.
+    """국가법령정보센터 API를 조회하고 응답 출처를 표시합니다.
+    자격증명 미설정 또는 조회 실패 시 번들된 로컬 샘플을 반환하므로 `source`를 확인해야 합니다.
 
     Args:
         law_name: 검색할 법령명 (예: '건설기술 진흥법', '건축법', '주택법', '소방시설 설치 및 관리에 관한 법률', '전기사업법')
@@ -68,8 +73,8 @@ def fetch_national_law(law_name: str, article_no: str = "") -> str:
 
 @mcp.tool()
 def fetch_kcsc_standard(standard_code: str) -> str:
-    """국가건설기준센터(kcsc.re.kr)로부터 KDS(설계기준) 및 KCS(표준시방서) 최신 규격 본문과 허용 기준치를 호출합니다.
-    API 키 미설정 또는 오프라인 환경에서는 정밀 로컬 캐시/Mock 데이터를 자동으로 반환합니다.
+    """국가건설기준센터에서 KDS/KCS 본문을 조회하고 응답 출처를 표시합니다.
+    자격증명 미설정 또는 조회 실패 시 번들된 로컬 샘플을 반환하므로 `source`를 확인해야 합니다.
 
     Args:
         standard_code: 검색할 건설기준 코드 (예: 'KDS 21 30 00', 'KCS 14 31 25', 'KCS 31 10 00', 'KEC 232', 'KDS 41 10 00')
@@ -104,9 +109,9 @@ def list_secure_local_files() -> str:
 def verify_calculation_safety(
     item_name: str,
     domain: str = "토목/구조",
-    design_val: float = 0.0,
-    allowable_val: float = 0.0,
-    req_sf: float = 1.25,
+    design_val: Optional[float] = None,
+    allowable_val: Optional[float] = None,
+    req_sf: Optional[float] = 1.25,
     formula_type: str = "civil_safety_factor",
     custom_formula: str = "",
     variables_json: str = "{}",
@@ -126,15 +131,21 @@ def verify_calculation_safety(
     """
     try:
         vars_dict = json.loads(variables_json) if variables_json and variables_json.strip() != "{}" else {}
-    except Exception:
-        vars_dict = {}
+        if not isinstance(vars_dict, dict):
+            raise ValueError("variables_json must decode to a JSON object")
+    except (json.JSONDecodeError, ValueError) as e:
+        return json.dumps(
+            {"status": "ERROR", "item_name": item_name, "error": f"잘못된 variables_json: {e}"},
+            ensure_ascii=False,
+            indent=2,
+        )
 
     res = _verify_math(
         item_name=item_name,
         domain=domain,
-        design_val=design_val if design_val != 0.0 else None,
-        allowable_val=allowable_val if allowable_val != 0.0 else None,
-        req_sf=req_sf if req_sf != 0.0 else None,
+        design_val=design_val,
+        allowable_val=allowable_val,
+        req_sf=req_sf,
         formula_type=formula_type if formula_type else None,
         custom_formula=custom_formula if custom_formula else None,
         variables=vars_dict,
@@ -146,7 +157,7 @@ def verify_calculation_safety(
 def export_review_document(
     output_filename: str,
     report_text: str,
-    project_name: str = "삼우씨엠 신축공사 CM현장",
+    project_name: str = "미입력 프로젝트",
     reviewer_name: str = "수석 건설사업관리기술인",
     discipline: str = "토목 / 구조 / 기계 / 소방 / 전기",
     doc_no: str = "",
@@ -192,8 +203,8 @@ def batch_cross_check_documents(filenames: list[str]) -> str:
 
 @mcp.tool()
 def audit_document_diff(base_file: str, target_file: str, file_category: str = "AUTO") -> str:
-    """기성내역서(XLSX) 단가/수량/금액 변조 및 도서(HWPX/DOCX) 개정본(Revision) 변경점 전수 감사 도구입니다.
-    - 기성내역서: 전회 승인단가 대비 임의 인상, 수식 하드코딩 과대청구, 도급수량 초과, 미승인 비목 자동 탐지
+    """기성내역서(XLSX) 수치 불일치와 도서(HWPX/DOCX) 개정본 변경점을 비교합니다.
+    - 기성내역서: 단가·수량·금액 변경 및 산술 불일치 후보 탐지(고의·과대청구 판단 아님)
     - 설계도서/시방서: 삭제/추가/수정 조항 추출 및 설계 안전율/기준 완화(CRITICAL) 감지
 
     Args:
@@ -216,7 +227,7 @@ def generate_and_evaluate_checklist(
     plan_file: str = "",
 ) -> str:
     """현장 특성(도심지, 고지하수위, 암반, 동절기 등) 및 특기시방서 기반으로 15~20개 맞춤형 CM 체크리스트를
-    동적으로 생성하고, 시공사 제출 시공계획서(HWPX/DOCX)를 자동 스캔하여 적합/보완 판정 및 근거를 매핑합니다.
+    동적으로 생성하고, 시공사 제출 시공계획서(HWPX/DOCX)의 키워드 근거와 누락 후보를 매핑합니다. 키워드 발견은 적합 판정이 아닙니다.
 
     Args:
         work_type: 대상 공종 ('토공/가설', '골조/콘크리트', '기계/소방', '전기/통신', '마감/방수')
@@ -287,7 +298,7 @@ def search_project_memory(query: str, status_filter: str = "") -> str:
 @mcp.tool()
 def track_design_changes(change_log_file: str, target_plan_file: str) -> str:
     """누적 설계변경(VE) 내역서(XLSX)의 회차별 변경 사양이 시공사가 제출한 신규 시공계획서(HWPX/DOCX)에
-    누락 없이 100% 반영되었는지 역추적 검증합니다.
+    관련 문구가 존재하는지 선별하고 누락 후보를 표시합니다. 도면·수치 반영 여부는 최종 대조가 필요합니다.
 
     Args:
         change_log_file: 누적 설계변경 총괄내역서 (예: 'sample_설계변경_총괄내역서.xlsx')
@@ -304,8 +315,8 @@ def track_design_changes(change_log_file: str, target_plan_file: str) -> str:
 def generate_weekly_cm_report(
     start_date: str = "",
     end_date: str = "",
-    project_name: str = "삼우씨엠 신축공사 CM현장",
-    chief_cm_name: str = "김수석 책임건설사업관리기술인",
+    project_name: str = "미입력 프로젝트",
+    chief_cm_name: str = "미입력 책임기술인",
 ) -> str:
     """프로젝트 메모리(지시사항, 검토 이력, 설계변경 현황)를 취합하여 삼우씨엠 표준 주간/월간 감리보고서(.docx)를 자동 생성합니다.
 
@@ -330,17 +341,17 @@ def generate_weekly_cm_report(
 @mcp.tool()
 def draft_official_notice(
     doc_title: str,
-    recipient: str = "(주)대우건설 현장소장",
+    recipient: str = "미입력 시공사 현장소장",
     reference: str = "발주처 감독관, 품질관리팀장",
     review_result_file: str = "",
-    project_name: str = "삼우씨엠 신축공사 CM현장",
-    chief_cm_name: str = "김수석 책임건설사업관리기술인",
+    project_name: str = "미입력 프로젝트",
+    chief_cm_name: str = "미입력 책임기술인",
 ) -> str:
     """시공계획서 검토결과(FAIL/보완필요)를 기반으로 시공사/발주처 발송용 정식 감리단 대외 공문(.docx/.md)을 자동 기안합니다.
 
     Args:
         doc_title: 공문 제목 (예: '가설 흙막이 시공계획서 검토결과 통보 및 시정 조치 지시의 건')
-        recipient: 수신처 (예: '(주)대우건설 현장소장')
+        recipient: 수신처 (예: '미입력 시공사 현장소장')
         reference: 참조처 (예: '발주처 개발사업팀 감독관')
         review_result_file: 첨부/근거 검토의견서 파일명 (선택 사항)
         project_name: 현장 사업명
@@ -366,12 +377,12 @@ def run_comprehensive_review(
     spec_file: str = "",
     calc_file: str = "",
     output_report_name: str = "종합_CM기술검토의견서.docx",
-    project_name: str = "삼우씨엠 신축공사 CM현장",
-    reviewer_name: str = "김수석 책임건설사업관리기술인",
+    project_name: str = "미입력 프로젝트",
+    reviewer_name: str = "미입력 책임기술인",
 ) -> str:
     """[원클릭 통합 자료 검토 파이프라인]
-    시공사 제출 시공계획서/계산서 파일명만 입력하면 [로컬 문서 파싱 ➔ 실시간 법령/KCSC 자동 호출 ➔
-    수치 검산 ➔ 3자 교차 대조표 ➔ 삼우씨엠 표준 Word 감리의견서(.docx) 생성]을 한 번에 원스톱으로 실행합니다.
+    시공사 제출 시공계획서/계산서를 파싱하고, 설정된 API 또는 로컬 샘플 검색 결과와 수치 근거를 모아
+    책임기술인 확인이 필요한 Word 검토 초안을 생성합니다.
 
     Args:
         target_plan_file: 검토 대상 시공계획서 (예: 'sample_과업지시서_특기시방.hwpx', 'sample_건축_단열및시공계획서.docx')
@@ -413,13 +424,13 @@ def parse_scanned_material_cert(image_or_pdf_file: str) -> str:
 @mcp.tool()
 def generate_daily_cm_log(
     date_str: str = "",
-    weather: str = "맑음 (기온: 24.5℃, 강수량: 0mm)",
+    weather: str = "미입력",
     activities: list[str] = None,
     inspections: list[dict] = None,
     workers_count: dict = None,
     equipment_count: dict = None,
-    project_name: str = "삼우씨엠 신축공사 CM현장",
-    chief_cm_name: str = "김수석 책임건설사업관리기술인",
+    project_name: str = "미입력 프로젝트",
+    chief_cm_name: str = "미입력 책임기술인",
 ) -> str:
     """금일 시공사 작업내용, 검측 실적, 투입 인원 및 중장비 데이터를 취합하여
     삼우씨엠 표준 '일일 감리업무일보(.docx)'를 자동 생성합니다.
@@ -469,7 +480,7 @@ def analyze_custom_schedule(excel_file: str) -> str:
 def generate_daily_tbm_safety(
     today_tasks_list: list[str],
     date_str: str = "",
-    project_name: str = "삼우씨엠 신축공사 CM현장",
+    project_name: str = "미입력 프로젝트",
 ) -> str:
     """당일 예정된 공종명(굴착, 비계, 양중, 용접, 콘크리트 타설 등)을 입력받아 산안법 및 KCS 기준에 따른
     맞춤형 '일일 TBM 안전점검표 및 위험성평가표(.docx)'를 자동 생성합니다.
@@ -521,11 +532,12 @@ def generate_inspection_sheet(
 def draft_ncr_correction_order(
     issue_description: str,
     location: str,
-    defect_category: str = "시공품질 불량",
-    photo_attached: str = "현장 결함 사진 첨부",
+    defect_category: str = "미분류",
+    photo_attached: str = "미첨부",
     corrective_deadline: str = "",
+    recipient: str = "미입력 시공사 현장소장",
 ) -> str:
-    """현장 부적합/결함 적발 시 시공사 대상 정식 '부적합 시정지시서(NCR: Non-Conformance Report .docx)'를 즉시 발급합니다.
+    """사용자가 입력한 현장 부적합 사실을 바탕으로 NCR 초안을 생성합니다. 기준 위반 여부와 증빙은 입력자가 확인해야 합니다.
 
     Args:
         issue_description: 지적 사항 및 결함 내용 (예: '1단 버팀보 볼트 조임 불량 및 안전율 미달 부재 무단 설치')
@@ -533,6 +545,7 @@ def draft_ncr_correction_order(
         defect_category: 부적합 분류 ('시공품질 불량', '안전관리 미흡', '도면/시방 위반')
         photo_attached: 사진 증빙 설명
         corrective_deadline: 시정조치 완료 기한 (예: '2026년 09월 05일까지')
+        recipient: NCR 초안 수신처
     """
     try:
         res = _draft_ncr(
@@ -541,6 +554,7 @@ def draft_ncr_correction_order(
             defect_category=defect_category,
             photo_attached=photo_attached,
             corrective_deadline=corrective_deadline,
+            recipient=recipient,
         )
         return json.dumps(res, ensure_ascii=False, indent=2)
     except Exception as e:
@@ -551,10 +565,10 @@ def draft_ncr_correction_order(
 def audit_custom_spec_requirements(
     spec_file: str,
     target_work_type: str = "",
-    project_name: str = "삼우씨엠 신축공사 CM현장",
+    project_name: str = "미입력 프로젝트",
 ) -> str:
     """발주처 과업지시서/특기시방서(HWPX/DOCX)에서 필수 제출도서 요건을 추출하고
-    로컬 파일 목록과 매핑하여 [접수완료 / 미접수(누락) / 보완필요] 판정표 및 제출현황표(.docx)를 자동 생성합니다.
+    로컬 파일명과 매핑하여 [접수 후보 / 미접수 후보 / 검토 필요] 현황표(.docx)를 생성합니다. 파일 내용 적합성은 별도 확인이 필요합니다.
 
     Args:
         spec_file: 발주처 특기시방서 파일명 (예: 'sample_과업지시서_특기시방.hwpx')
@@ -577,7 +591,7 @@ def audit_calculation_quantity_drawing_match(
     calc_file: str,
     boq_file: str,
     drawing_pdf_file: str,
-    project_name: str = "삼우씨엠 신축공사 CM현장",
+    project_name: str = "미입력 프로젝트",
 ) -> str:
     """계산서(XLSX), 수량산출서(XLSX), 도면 PDF(장비일람표) 간 장비 규격, 용량, 수량 상호 불일치,
     산출서 수식 오류(수량*단가!=금액) 및 비정상 이상치(음수값 등)를 전수 교차 검증합니다.
@@ -606,10 +620,10 @@ def register_concrete_pour(
     location: str,
     spec_fck: float,
     volume_m3: float,
-    remicon_spec: str = "25-24-150 (자갈-강도-슬럼프)",
+    remicon_spec: str = "미입력",
     measured_7d_mpa: float = None,
     measured_28d_mpa: float = None,
-    project_name: str = "삼우씨엠 신축공사 CM현장",
+    project_name: str = "미입력 프로젝트",
 ) -> str:
     """콘크리트 타설 이벤트를 등록하고, 7일/28일 압축강도 시험일자 캘린더 자동 계산 및 품질관리대장(XLSX)에 누적 기록합니다.
 
@@ -645,12 +659,12 @@ def generate_before_after_sheet(
     before_img: str,
     after_img: str,
     description: str,
-    location: str = "지하 2층 1구역",
+    location: str = "미입력",
     action_date: str = "",
-    ncr_no: str = "SWCM-NCR-20260829-01",
-    project_name: str = "삼우씨엠 신축공사 CM현장",
-    inspector_name: str = "김수석 책임건설사업관리기술인",
-    contractor_name: str = "(주)대우건설 현장소장",
+    ncr_no: str = "",
+    project_name: str = "미입력 프로젝트",
+    inspector_name: str = "미입력 책임기술인",
+    contractor_name: str = "미입력 시공사 현장소장",
 ) -> str:
     """현장 시정지시(NCR) 지적 사진(Before)과 시공사 조치 완료 사진(After)을 1:1로 매핑한
     삼우씨엠 표준 '시정조치 확인서(.docx / .md)'를 자동 생성합니다.
@@ -688,12 +702,12 @@ def generate_before_after_sheet(
 @mcp.tool()
 def audit_subcontract_agreement(
     subcontract_excel_file: str,
-    contractor_name: str = "(주)대우건설",
-    subcontractor_name: str = "(주)삼우토건",
-    project_name: str = "삼우씨엠 신축공사 CM현장",
+    contractor_name: str = "미입력 시공사",
+    subcontractor_name: str = "미입력 하수급인",
+    project_name: str = "미입력 프로젝트",
 ) -> str:
-    """하도급 내역서(XLSX)를 파싱하여 건설산업기본법 기준 하도급 비율(82% 이상), 직접시공비율 및
-    전문건설업 면허 적정성을 검토하고 '하도급계약 적정성 검토의견서(.docx)'를 자동 작성합니다.
+    """하도급 내역서(XLSX)의 금액 비율을 산술 선별하고 면허·재하도급 관련 기재 근거를 표시합니다.
+    법령 적용, 직접시공률 및 적정성은 확정하지 않으며 검토 초안(.docx)을 작성합니다.
 
     Args:
         subcontract_excel_file: 하도급 계약/내역 엑셀 파일명 (예: 'sample_하도급내역서.xlsx')
@@ -715,14 +729,14 @@ def audit_subcontract_agreement(
 
 @mcp.tool()
 def assemble_cm_final_report(
-    project_name: str = "삼우씨엠 신축공사 CM현장",
+    project_name: str = "미입력 프로젝트",
     report_type: str = "준공 감리완료보고서",
-    chief_cm_name: str = "김수석 책임건설사업관리기술인",
-    client_name: str = "(주)삼우건설 발주처",
-    contractor_name: str = "(주)대우건설",
+    chief_cm_name: str = "미입력 책임기술인",
+    client_name: str = "미입력 발주자",
+    contractor_name: str = "미입력 시공사",
 ) -> str:
-    """프로젝트 메모리 DB(`project_memory.db`)와 누적 감리 산출물을 원클릭 스캔하여
-    공정·품질·안전·시정지시·설계변경 실적이 총망라된 공식 '준공 감리완료보고서(.docx / .md)'를 일괄 조립합니다.
+    """프로젝트 메모리 DB와 누적 산출물 파일 후보를 집계하여 준공 검토 초안(.docx/.md)을 조립합니다.
+    자동 집계만으로 공정률, 품질 적합, 사고·NCR 실적 또는 준공 승인을 확정하지 않습니다.
 
     Args:
         project_name: 현장 사업명
@@ -748,9 +762,9 @@ def assemble_cm_final_report(
 def check_concurrent_work_fire_hazard(
     tasks_list: list,
     date_str: str = "",
-    project_name: str = "삼우씨엠 신축공사 CM현장",
-    chief_cm_name: str = "김수석 책임건설사업관리기술인",
-    contractor_name: str = "(주)대우건설 현장소장",
+    project_name: str = "미입력 프로젝트",
+    chief_cm_name: str = "미입력 책임기술인",
+    contractor_name: str = "미입력 시공사 현장소장",
 ) -> str:
     """일일 작업계획 목록에서 화재위험(용접, 용단, 그라인더)과 가연성물질(단열재 우레탄폼, 도장, 방수)
     공종의 공간적·시간적 중복을 탐지하여 즉시 경보 및 삼우씨엠 표준 '화재위험 시정지시서(.docx)'를 생성합니다.
@@ -778,9 +792,9 @@ def check_concurrent_work_fire_hazard(
 @mcp.tool()
 def generate_video_recording_log(
     video_records_list: list = None,
-    project_name: str = "삼우씨엠 신축공사 CM현장",
-    chief_cm_name: str = "김수석 책임건설사업관리기술인",
-    contractor_name: str = "(주)대우건설",
+    project_name: str = "미입력 프로젝트",
+    chief_cm_name: str = "미입력 책임기술인",
+    contractor_name: str = "미입력 시공사",
 ) -> str:
     """주요 구조부(철근 배근, 콘크리트 타설, 흙막이 등) 검측 동영상 파일 및 메타데이터를 결합하여
     지자체 및 인허가 관청 제출용 공식 '동영상 촬영 기록관리대장(.docx / .md)'을 자동 생성합니다.
@@ -807,18 +821,22 @@ def generate_video_recording_log(
 def issue_weather_stop_work_order(
     rain_mm: float,
     wind_speed_ms: float,
-    planned_work: str = "3층 슬래브 콘크리트 타설 및 갱폼 양중",
-    temp_c: float = 22.0,
-    project_name: str = "삼우씨엠 신축공사 CM현장",
-    chief_cm_name: str = "김수석 책임건설사업관리기술인",
-    contractor_name: str = "(주)대우건설 현장소장",
+    rain_threshold_mm: Optional[float] = None,
+    wind_threshold_ms: Optional[float] = None,
+    planned_work: str = "미입력",
+    temp_c: Optional[float] = None,
+    project_name: str = "미입력 프로젝트",
+    chief_cm_name: str = "미입력 책임기술인",
+    contractor_name: str = "미입력 시공사 현장소장",
 ) -> str:
-    """강우량 및 풍속 조건을 KCS 콘크리트 표준시방서 및 산업안전보건기준에 따라 자동 판정하여
-    우천 시 타설 금지 및 강풍 시 크레인 양중 작업중지 공식 '작업중지 명령서(.docx / .md)'를 기안합니다.
+    """강우량·풍속과 계획 작업의 키워드를 선별해 작업중지 검토 초안(.docx/.md)을 생성합니다.
+    현장 승인기준, 장비 매뉴얼 및 책임기술인 판단 없이 법적 작업중지 명령을 확정하지 않습니다.
 
     Args:
         rain_mm: 강우량 (mm/hr)
         wind_speed_ms: 순간최대풍속 (m/s)
+        rain_threshold_mm: 승인 시방·작업계획에서 확인한 현장 강우 선별기준 (mm/hr)
+        wind_threshold_ms: 장비 매뉴얼·작업계획에서 확인한 현장 풍속 선별기준 (m/s)
         planned_work: 당일 계획 작업 내용
         temp_c: 현재 기온 (℃)
         project_name: 현장 사업명
@@ -829,6 +847,8 @@ def issue_weather_stop_work_order(
         res = _issue_weather_stop(
             rain_mm=rain_mm,
             wind_speed_ms=wind_speed_ms,
+            rain_threshold_mm=rain_threshold_mm,
+            wind_threshold_ms=wind_threshold_ms,
             planned_work=planned_work,
             temp_c=temp_c,
             project_name=project_name,

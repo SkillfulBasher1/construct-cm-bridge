@@ -3,8 +3,8 @@
 Detects prohibited/dangerous concurrent work combinations between:
 1. Hot Works (용접, 용단, 절단, 연마, 토치 가열 등)
 2. Combustible Materials / Flammable Vapor Works (우레탄폼 뿜칠, 단열재 시공, 에폭시/페인트 도장, 방수 시공, 본드 접착 등)
-Evaluates spatial/temporal overlap and automatically drafts an official CM Stop/Separation Order (.docx / .md)
-under the Occupational Safety and Health Act (산업안전보건기준에 관한 규칙 제241조의2) and KCS standards.
+Screens spatial overlap and drafts a review sheet (.docx / .md). It does not issue
+a legal stop-work order or determine which regulation applies to the project.
 """
 
 import os
@@ -30,7 +30,7 @@ COMBUSTIBLE_KEYWORDS = [
 
 
 class FireHazardConflictDetector:
-    """Detects dangerous concurrent work conflicts and drafts formal CM corrective orders."""
+    """Screens concurrent-work conflicts and drafts a review-required worksheet."""
 
     def __init__(
         self,
@@ -38,16 +38,16 @@ class FireHazardConflictDetector:
         exporter: Optional[DocxExporter] = None,
     ):
         self.parser = parser or DocumentParser()
-        self.exporter = exporter or DocxExporter()
+        self.exporter = exporter or DocxExporter(self.parser.secure_dir)
         self.secure_dir = self.parser.secure_dir
 
     def detect_conflicts(
         self,
         tasks_list: Union[List[str], str],
         date_str: str = "",
-        project_name: str = "삼우씨엠 신축공사 CM현장",
-        chief_cm_name: str = "김수석 책임건설사업관리기술인",
-        contractor_name: str = "(주)대우건설 현장소장",
+        project_name: str = "미입력 프로젝트",
+        chief_cm_name: str = "미입력 책임기술인",
+        contractor_name: str = "미입력 시공사 현장소장",
     ) -> Dict[str, Any]:
         """Analyzes daily tasks list and detects hot work & combustible work conflicts in same space."""
         if isinstance(tasks_list, str):
@@ -57,6 +57,10 @@ class FireHazardConflictDetector:
 
         now = datetime.now()
         cur_date = date_str if date_str else now.strftime("%Y.%m.%d")
+        try:
+            datetime.strptime(cur_date, "%Y.%m.%d")
+        except ValueError as e:
+            raise ValueError("date_str은 YYYY.MM.DD 형식이어야 합니다.") from e
         doc_no = f"SWCM-FIRE-{now.strftime('%Y%m%d')}-01"
 
         hot_works: List[Dict[str, Any]] = []
@@ -82,33 +86,44 @@ class FireHazardConflictDetector:
                 # Compare locations
                 h_loc, c_loc = h["location"], c["location"]
                 overlap = False
-                if h_loc == c_loc and h_loc != "구역 미상":
+                confidence = "CONFIRMED_LOCATION_MATCH"
+                if h_loc == "구역 미상" or c_loc == "구역 미상":
+                    overlap = True
+                    confidence = "POTENTIAL_UNKNOWN_LOCATION"
+                elif h_loc == c_loc:
                     overlap = True
                 elif any(k in c_loc for k in h_loc.split() if len(k) > 1) or any(k in h_loc for k in c_loc.split() if len(k) > 1):
                     overlap = True
-                elif h_loc == "구역 미상" or c_loc == "구역 미상":
-                    overlap = True  # Conservative defense: unknown location is flagged as potential collision
 
                 if overlap:
+                    confirmed = confidence == "CONFIRMED_LOCATION_MATCH"
                     conflicts.append({
                         "hot_work": h["task"],
                         "combustible_work": c["task"],
                         "conflict_location": h_loc if h_loc != "구역 미상" else c_loc,
-                        "risk_level": "CRITICAL (즉시 작업중지 및 분리)",
-                        "legal_basis": "산업안전보건기준에 관한 규칙 제241조의2 (화재위험작업 시의 준수사항) 및 건설기술 진흥법 제62조",
-                        "mandatory_action": "화기작업과 가연성물질 취급작업의 공간적/시간적 동시작업 전면 금지, 화재감시자 배치, 불꽃비산방지포 설치 전까지 작업중지",
+                        "confidence": confidence,
+                        "risk_level": "CRITICAL (즉시 작업중지 및 분리)" if confirmed else "POTENTIAL (위치 확인 필요)",
+                        "legal_basis": "화재위험작업 관련 현행 규정과 현장 화기작업 절차 원문 확인 필요",
+                        "mandatory_action": "화기작업과 가연성물질 취급작업의 위치·시간을 즉시 확인하고, 중첩이 확인되면 작업 분리와 방호조치 완료 전까지 중지",
                     })
 
-        status = "CRITICAL_ALERT" if conflicts else "NORMAL"
-        overall_verdict = (
-            "【위험 경보】 화재위험 동시작업 충돌 감지 ➔ 즉시 작업중지 및 구획 분리 명령"
-            if conflicts
-            else "화재 동시작업 충돌 없음 (PASS)"
-        )
+        confirmed_conflicts = [c for c in conflicts if c["confidence"] == "CONFIRMED_LOCATION_MATCH"]
+        if confirmed_conflicts:
+            status = "CRITICAL_ALERT"
+            overall_verdict = "【위험 경보】 동일 위치 화재위험 동시작업 키워드 감지 ➔ 현장 확인 및 작업 분리 필요"
+        elif conflicts:
+            status = "REVIEW_REQUIRED"
+            overall_verdict = "화재위험 작업 조합 감지, 위치 미상으로 현장 확인 필요 (REVIEW_REQUIRED)"
+        elif raw_tasks:
+            status = "NORMAL"
+            overall_verdict = "키워드 기반 화재 동시작업 충돌 미검출 (작업 승인 판정 아님)"
+        else:
+            status = "REVIEW_REQUIRED"
+            overall_verdict = "작업 목록 미입력 (REVIEW_REQUIRED)"
 
         # Generate DOCX and MD reports
         md_lines = [
-            f"# [화재위험 동시작업 충돌 감지 및 감리단 시정명령서]",
+            f"# [화재위험 동시작업 충돌 검토서]",
             f"- **문서번호:** {doc_no}",
             f"- **공 사 명:** {project_name}",
             f"- **점검일자:** {cur_date}",
@@ -118,7 +133,7 @@ class FireHazardConflictDetector:
             f"- **동시작업 충돌 건수:** **{len(conflicts)}건 검출**",
             f"- **감리단 조치사항:** **{overall_verdict}**\n",
             f"# 2. 화재위험 동시작업 충돌 상세 내역",
-            f"| No | 화기 작업 (점화원) | 가연성 물질 취급 (연소원) | 충돌 위치 | 위험도 | 감리원 법적 조치사항 |",
+            f"| No | 화기 작업 (점화원) | 가연성 물질 취급 (연소원) | 충돌 위치 | 위험도 | 확인 및 권고 조치 |",
             f"|---|---|---|---|---|---|",
         ]
 
@@ -128,16 +143,16 @@ class FireHazardConflictDetector:
                     f"| {idx} | {conf['hot_work']} | {conf['combustible_work']} | **{conf['conflict_location']}** | 🚨 **{conf['risk_level']}** | {conf['mandatory_action']} |"
                 )
         else:
-            md_lines.append("| - | 화기작업 없음 | 가연성작업 없음 | 안전 구역 | 정상 (PASS) | 특이 충돌 사항 없음 |")
+            md_lines.append("| - | 자동 검출 없음 | 자동 검출 없음 | 위치 근거 없음 | REVIEW_REQUIRED | 작업허가서와 실제 공간·시간 중첩 여부 확인 |")
 
         md_lines.extend([
-            f"\n# 3. 법적 근거 및 감리단 지시사항",
-            f"1. **산업안전보건기준에 관한 규칙 제241조의2:** 통풍이나 환기가 불충분한 장소에서 화재위험작업과 인화성 액체·증기 물질을 취급하는 작업을 동시에 진행하여서는 아니 됨.",
-            f"2. **조치 요구사항:** 상기 충돌 공종에 대하여 시공사는 작업을 즉시 중지하고, 시공 순서 변경 또는 방화구획 분리 조치계획서를 제출하여 감리원의 승인을 득한 후 재개할 것.",
+            f"\n# 3. 적용 기준 및 확인사항",
+            f"1. **적용 기준:** 화재위험작업 관련 현행 규정, 현장 화기작업허가 절차 및 작업계획서 원문을 확인할 것.",
+            f"2. **조치 요구사항:** 검출된 충돌 공종은 공간·시간 분리와 방호조치를 확인한 후 책임자의 재개 승인을 받을 것.",
         ])
 
         report_md = "\n".join(md_lines)
-        docx_filename = f"동시작업_화재위험_시정지시서_{now.strftime('%Y%m%d')}.docx"
+        docx_filename = f"동시작업_화재위험_검토서_{now.strftime('%Y%m%d')}.docx"
 
         res = self.exporter.export(
             output_filename=docx_filename,
@@ -169,9 +184,9 @@ _fire_detector = FireHazardConflictDetector()
 def check_concurrent_work_fire_hazard(
     tasks_list: Union[List[str], str],
     date_str: str = "",
-    project_name: str = "삼우씨엠 신축공사 CM현장",
-    chief_cm_name: str = "김수석 책임건설사업관리기술인",
-    contractor_name: str = "(주)대우건설 현장소장",
+    project_name: str = "미입력 프로젝트",
+    chief_cm_name: str = "미입력 책임기술인",
+    contractor_name: str = "미입력 시공사 현장소장",
 ) -> Dict[str, Any]:
     return _fire_detector.detect_conflicts(
         tasks_list=tasks_list,

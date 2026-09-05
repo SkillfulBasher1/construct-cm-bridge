@@ -1,8 +1,8 @@
 """Samwoo CM Standard Review Document Exporter (Module 3 - Exporter)
 
-Generates professional Samwoo CM style inspection/review reports in both Word (.docx) and Markdown (.md).
+Generates Samwoo CM style inspection/review drafts in both Word (.docx) and Markdown (.md).
 Implements standard 4-column 3-way cross examination tables, formula verification breakdowns,
-and official CM signature blocks.
+and review signature placeholders.
 """
 
 import os
@@ -19,6 +19,21 @@ from docx.oxml import parse_xml, OxmlElement
 from docx.oxml.ns import nsdecls, qn
 
 from .doc_parser import SECURE_DATA_DIR
+
+
+def choose_output_stem(output_dir: Union[str, Path], requested_stem: str, overwrite: bool = False) -> str:
+    """Return a basename that will not overwrite an existing DOCX/Markdown pair."""
+    directory = Path(output_dir).resolve()
+    clean_stem = Path(requested_stem).name
+    if overwrite:
+        return clean_stem
+    if not (directory / f"{clean_stem}.docx").exists() and not (directory / f"{clean_stem}.md").exists():
+        return clean_stem
+    for sequence in range(2, 10_000):
+        candidate = f"{clean_stem}_{sequence:02d}"
+        if not (directory / f"{candidate}.docx").exists() and not (directory / f"{candidate}.md").exists():
+            return candidate
+    raise FileExistsError(f"사용 가능한 출력 파일명을 찾지 못했습니다: {clean_stem}")
 
 
 def set_cell_background(cell, fill_hex: str):
@@ -53,13 +68,15 @@ class DocxExporter:
         self,
         output_filename: str,
         report_text: str,
-        project_name: Optional[str] = "삼우씨엠 신축공사 CM현장",
-        reviewer_name: Optional[str] = "수석 건설사업관리기술인",
-        discipline: Optional[str] = "토목 / 구조 / 기계 / 소방 / 전기",
+        project_name: Optional[str] = "미입력 프로젝트",
+        reviewer_name: Optional[str] = "미입력 검토자",
+        discipline: Optional[str] = "미입력 검토분야",
         doc_no: Optional[str] = None,
+        overwrite: bool = False,
     ) -> Dict[str, Any]:
         """Generates both .docx and .md review documents."""
-        base_name = os.path.splitext(os.path.basename(output_filename))[0]
+        requested_stem = os.path.splitext(os.path.basename(output_filename))[0]
+        base_name = choose_output_stem(self.output_dir, requested_stem, overwrite=overwrite)
         docx_path = self.output_dir / f"{base_name}.docx"
         md_path = self.output_dir / f"{base_name}.md"
 
@@ -314,10 +331,11 @@ _exporter = DocxExporter()
 def export_review_document(
     output_filename: str,
     report_text: str,
-    project_name: Optional[str] = "삼우씨엠 신축공사 CM현장",
-    reviewer_name: Optional[str] = "수석 건설사업관리기술인",
-    discipline: Optional[str] = "토목 / 구조 / 기계 / 소방 / 전기",
+    project_name: Optional[str] = "미입력 프로젝트",
+    reviewer_name: Optional[str] = "미입력 검토자",
+    discipline: Optional[str] = "미입력 검토분야",
     doc_no: Optional[str] = None,
+    overwrite: bool = False,
 ) -> Dict[str, Any]:
     return _exporter.export(
         output_filename=output_filename,
@@ -326,4 +344,5 @@ def export_review_document(
         reviewer_name=reviewer_name,
         discipline=discipline,
         doc_no=doc_no,
+        overwrite=overwrite,
     )

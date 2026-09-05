@@ -6,6 +6,7 @@ and accumulates test records into a persistent Excel Quality Control Ledger (XLS
 """
 
 import os
+import math
 import logging
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -78,16 +79,32 @@ class ConcreteQCTracker:
         location: str,
         spec_fck: float,
         volume_m3: float,
-        remicon_spec: str = "25-24-150 (자갈-강도-슬럼프)",
+        remicon_spec: str = "미입력",
         measured_7d_mpa: Optional[float] = None,
         measured_28d_mpa: Optional[float] = None,
-        project_name: str = "삼우씨엠 신축공사 CM현장",
+        project_name: str = "미입력 프로젝트",
     ) -> Dict[str, Any]:
         """Registers a concrete pour event, computes 7/28d dates, checks strength, and updates ledger."""
         try:
             pour_date = datetime.strptime(date_str.replace(".", "-").replace("/", "-").strip(), "%Y-%m-%d")
-        except Exception:
-            pour_date = datetime.now()
+        except ValueError as e:
+            raise ValueError("date_str은 유효한 YYYY-MM-DD, YYYY.MM.DD 또는 YYYY/MM/DD 형식이어야 합니다.") from e
+
+        numeric_values = {
+            "spec_fck": spec_fck,
+            "volume_m3": volume_m3,
+            "measured_7d_mpa": measured_7d_mpa,
+            "measured_28d_mpa": measured_28d_mpa,
+        }
+        for name, value in numeric_values.items():
+            if value is None:
+                continue
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(float(value)):
+                raise ValueError(f"{name}은 유한한 숫자여야 합니다.")
+            if value < 0:
+                raise ValueError(f"{name}은 음수일 수 없습니다.")
+        if spec_fck <= 0:
+            raise ValueError("spec_fck는 0보다 커야 합니다.")
 
         d7_date = pour_date + timedelta(days=7)
         d28_date = pour_date + timedelta(days=28)
@@ -96,8 +113,8 @@ class ConcreteQCTracker:
         d28_str = d28_date.strftime("%Y.%m.%d")
 
         # Strength calculation & compliance check
-        rate_7d = (measured_7d_mpa / spec_fck * 100.0) if measured_7d_mpa else None
-        rate_28d = (measured_28d_mpa / spec_fck * 100.0) if measured_28d_mpa else None
+        rate_7d = (measured_7d_mpa / spec_fck * 100.0) if measured_7d_mpa is not None else None
+        rate_28d = (measured_28d_mpa / spec_fck * 100.0) if measured_28d_mpa is not None else None
 
         verdict = "시험 대기 (PENDING)"
         if measured_28d_mpa is not None:
@@ -131,7 +148,7 @@ class ConcreteQCTracker:
             measured_28d_mpa if measured_28d_mpa is not None else "-",
             f"{rate_28d:.1f}%" if rate_28d is not None else "-",
             verdict,
-            f"감리원 입회 타설 (누적 {volume_m3:,.0f}m3)",
+            "입력 자료 기반 등록",
         ]
         ws.append(row_data)
 
@@ -179,10 +196,10 @@ def register_concrete_pour(
     location: str,
     spec_fck: float,
     volume_m3: float,
-    remicon_spec: str = "25-24-150 (자갈-강도-슬럼프)",
+    remicon_spec: str = "미입력",
     measured_7d_mpa: Optional[float] = None,
     measured_28d_mpa: Optional[float] = None,
-    project_name: str = "삼우씨엠 신축공사 CM현장",
+    project_name: str = "미입력 프로젝트",
 ) -> Dict[str, Any]:
     return _concrete_tracker.register_pour(
         date_str=date_str,

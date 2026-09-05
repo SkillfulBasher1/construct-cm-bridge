@@ -67,8 +67,10 @@ class DocumentCacheManager:
 
     def get_file_metadata(self, filename: str) -> Optional[Dict[str, Any]]:
         """Gets size, mtime, and SHA-256 for a file inside secure_dir."""
-        target_path = (self.secure_dir / os.path.basename(filename)).resolve()
-        if not target_path.exists():
+        if not isinstance(filename, str) or filename != os.path.basename(filename) or "/" in filename or "\\" in filename:
+            return None
+        target_path = (self.secure_dir / filename).resolve()
+        if not target_path.is_relative_to(self.secure_dir) or not target_path.is_file():
             return None
         stat = target_path.stat()
         sha256 = self.compute_sha256(target_path)
@@ -96,8 +98,8 @@ class DocumentCacheManager:
         if entry.get("sha256") != meta["sha256"]:
             return False
 
-        summary_file = entry.get("summary_file")
-        if summary_file and not Path(summary_file).exists():
+        summary_path = self._resolve_summary_path(entry.get("summary_file"))
+        if entry.get("summary_file") and summary_path is None:
             return False
 
         return True
@@ -114,8 +116,8 @@ class DocumentCacheManager:
             return None
 
         summary_md = ""
-        summary_path = Path(entry.get("summary_file", ""))
-        if summary_path.exists():
+        summary_path = self._resolve_summary_path(entry.get("summary_file"))
+        if summary_path and summary_path.is_file():
             with open(summary_path, "r", encoding="utf-8") as f:
                 summary_md = f.read()
 
@@ -128,7 +130,7 @@ class DocumentCacheManager:
             "sha256": meta["sha256"],
             "cached_at": entry.get("cached_at"),
             "summary_md": summary_md,
-            "summary_path": str(summary_path),
+            "summary_path": str(summary_path) if summary_path else "",
             "parsed_data": parsed_data,
             "message": f"캐시 적중: '{meta['filename']}' 변경 없음 (SHA-256: {meta['sha256'][:8]}...) ➔ 0.05초 만에 요약 반환",
         }
@@ -174,7 +176,7 @@ class DocumentCacheManager:
             "size_bytes": meta["size_bytes"],
             "mtime": meta["mtime"],
             "cached_at": now.isoformat(),
-            "summary_file": str(summary_path),
+            "summary_file": summary_path.name,
             "parsed_data": parsed_data,
         }
         self._save_registry(reg)
@@ -186,6 +188,18 @@ class DocumentCacheManager:
             "summary_path": str(summary_path),
             "cached_at": now.isoformat(),
         }
+
+    def _resolve_summary_path(self, stored_path: Optional[str]) -> Optional[Path]:
+        """Resolves a registry summary path without allowing reads outside summaries/."""
+        if not stored_path:
+            return None
+        candidate = Path(stored_path)
+        if not candidate.is_absolute():
+            candidate = self.summaries_dir / candidate.name
+        candidate = candidate.resolve()
+        if not candidate.is_relative_to(self.summaries_dir.resolve()) or not candidate.is_file():
+            return None
+        return candidate
 
     def get_or_parse(
         self,

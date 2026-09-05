@@ -1,6 +1,7 @@
 """End-to-End Tests for Samwoo-CM-Bridge MCP Server Tools"""
 
 import json
+from pathlib import Path
 from samwoo_cm_bridge.server import (
     fetch_national_law,
     fetch_kcsc_standard,
@@ -72,4 +73,4 @@ def test_e2e_mcp_tools_flow():
     )
     export_data = json.loads(export_json)
     assert export_data["status"] == "SUCCESS"
-    assert "E2E_가설흙막이_검토의견서.docx" in export_data["docx_path"]
+    assert Path(export_data["docx_path"]).stem.startswith("E2E_가설흙막이_검토의견서")

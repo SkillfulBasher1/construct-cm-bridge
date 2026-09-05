@@ -117,9 +117,9 @@ class DesignChangeTracker:
                         break
 
             if matched:
-                status = "MATCH (설계변경 반영 확인)"
+                status = "EVIDENCE_FOUND (REVIEW_REQUIRED)"
                 match_count += 1
-                action = "승인 적정"
+                action = "관련 문구 발견, 승인도서·수치 최종 대조 필요"
             else:
                 status = "OMISSION (설계변경 미반영 누락)"
                 omission_count += 1
@@ -136,7 +136,12 @@ class DesignChangeTracker:
             })
 
         has_omission = omission_count > 0
-        overall_verdict = "설계변경 사항 누락 보완 지시 (FAIL/REVISE)" if has_omission else "설계변경 100% 반영 완료 (PASS)"
+        if not change_items:
+            overall_verdict = "설계변경 항목을 추출하지 못함 (REVIEW_REQUIRED)"
+        elif has_omission:
+            overall_verdict = "설계변경 사항 누락 보완 지시 (FAIL/REVISE)"
+        else:
+            overall_verdict = "관련 문구 발견, 도면·수치 최종 대조 필요 (REVIEW_REQUIRED)"
 
         return {
             "status": "SUCCESS",

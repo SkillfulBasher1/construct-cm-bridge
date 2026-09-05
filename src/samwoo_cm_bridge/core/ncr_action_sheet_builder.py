@@ -4,7 +4,6 @@ Generates official 'Before / After Corrective Action Verification Sheet (.docx /
 mapping defect photos (Before) and contractor rectification photos (After) in a 1:1 side-by-side card layout.
 """
 
-import os
 import logging
 from datetime import datetime
 from pathlib import Path
@@ -15,8 +14,8 @@ from docx.shared import Inches, Pt, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_TABLE_ALIGNMENT, WD_ALIGN_VERTICAL
 
-from .doc_parser import SECURE_DATA_DIR
-from .docx_exporter import DocxExporter, set_cell_background, set_cell_margins
+from .doc_parser import DocumentParser, SECURE_DATA_DIR
+from .docx_exporter import DocxExporter, choose_output_stem, set_cell_background, set_cell_margins
 
 logger = logging.getLogger(__name__)
 
@@ -35,22 +34,33 @@ class NCRActionSheetBuilder:
         before_img: str,
         after_img: str,
         description: str,
-        location: str = "지하 2층 1구역",
+        location: str = "미입력",
         action_date: str = "",
-        ncr_no: str = "SWCM-NCR-20260829-01",
-        project_name: str = "삼우씨엠 신축공사 CM현장",
-        inspector_name: str = "김수석 책임건설사업관리기술인",
-        contractor_name: str = "(주)대우건설 현장소장",
+        ncr_no: str = "",
+        project_name: str = "미입력 프로젝트",
+        inspector_name: str = "미입력 책임기술인",
+        contractor_name: str = "미입력 시공사 현장소장",
     ) -> Dict[str, Any]:
         """Generates Before/After photo confirmation document."""
         now = datetime.now()
         date_str = action_date if action_date else now.strftime("%Y.%m.%d")
+        try:
+            datetime.strptime(date_str, "%Y.%m.%d")
+        except ValueError as e:
+            raise ValueError("action_date는 YYYY.MM.DD 형식이어야 합니다.") from e
         doc_no = f"SWCM-ACT-{now.strftime('%Y%m%d')}-01"
+        parser = DocumentParser(self.secure_dir)
+        before_path = parser._validate_path(before_img)
+        after_path = parser._validate_path(after_img)
+        allowed_image_exts = [".jpg", ".jpeg", ".png"]
+        if before_path.suffix.lower() not in allowed_image_exts or after_path.suffix.lower() not in allowed_image_exts:
+            raise ValueError("Before/After 증빙은 JPG, JPEG 또는 PNG 파일이어야 합니다.")
+        review_status = "원본 사진 확인 필요 (REVIEW_REQUIRED)"
 
         # 1. Generate Markdown
         md_lines = [
-            f"# [현장 시정조치 완료 확인서 (Before / After)]",
-            f"- **문서번호:** {doc_no} (관련 NCR: {ncr_no})",
+            f"# [현장 시정조치 사진대지 (Before / After)]",
+            f"- **문서번호:** {doc_no} (관련 NCR: {ncr_no or '미입력'})",
             f"- **공 사 명:** {project_name}",
             f"- **지적 위치:** {location}",
             f"- **조치 일자:** {date_str}",
@@ -62,10 +72,10 @@ class NCRActionSheetBuilder:
             f"| 구분 | [지적 사항] 조치 전 (Before) | [조치 완료] 시정 후 (After) |",
             f"|---|---|---|",
             f"| 사진 파일 | `{before_img}` | `{after_img}` |",
-            f"| 현장 상태 | 결함 발생 및 기준 미달 상태 | 시정조치 완료 및 감리원 재검측 합격 |",
-            f"| 판정 | **시정지시 발부 (NCR)** | **시정완료 승인 (APPROVED)** |\n",
+            f"| 현장 상태 | 조치 전 입력 사진 | 조치 후 입력 사진 |",
+            f"| 판정 | **사진 등록됨** | **{review_status}** |\n",
             f"# 3. 감리단 최종 검측 의견",
-            f"- 상기 지적사항에 대하여 시공사가 제출한 조치내용 및 현장 실물을 확인한 결과, 설계도서 및 KCS 시공기준에 부합하게 적정 조치되었음을 확인함.",
+            f"- 사진과 조치 설명이 등록되었습니다. 자동 이미지 내용 판독이나 현장 재검측을 수행하지 않았으므로 책임기술인의 승인 서명이 필요합니다. **{review_status}**",
         ]
         report_md = "\n".join(md_lines)
 
@@ -80,7 +90,7 @@ class NCRActionSheetBuilder:
         # Title
         title_p = doc.add_paragraph()
         title_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        title_run = title_p.add_run("현장 시정조치 완료 확인서 (Before / After)")
+        title_run = title_p.add_run("현장 시정조치 사진대지 (Before / After)")
         title_run.font.name = "맑은 고딕"
         title_run.font.size = Pt(18)
         title_run.font.bold = True
@@ -90,7 +100,7 @@ class NCRActionSheetBuilder:
         info_table = doc.add_table(rows=3, cols=4)
         info_table.alignment = WD_TABLE_ALIGNMENT.CENTER
         info_data = [
-            [("문서번호", doc_no), ("관련 NCR", ncr_no)],
+            [("문서번호", doc_no), ("관련 NCR", ncr_no or "미입력")],
             [("공사명", project_name), ("조치위치", location)],
             [("조치일자", date_str), ("검측확인", inspector_name)],
         ]
@@ -144,9 +154,6 @@ class NCRActionSheetBuilder:
         for c in [cell_b_img, cell_a_img]:
             set_cell_margins(c, 100, 100, 100, 100)
 
-        before_path = (self.secure_dir / os.path.basename(before_img)).resolve()
-        after_path = (self.secure_dir / os.path.basename(after_img)).resolve()
-
         p_b = cell_b_img.paragraphs[0]
         p_b.alignment = WD_ALIGN_PARAGRAPH.CENTER
         if before_path.exists() and before_path.suffix.lower() in [".jpg", ".jpeg", ".png"]:
@@ -176,7 +183,7 @@ class NCRActionSheetBuilder:
             set_cell_margins(c, 80, 80, 100, 100)
 
         cell_b_desc.text = f"• 지적사항: {issue_title}\n• 결함내용: {description[:80]}"
-        cell_a_desc.text = f"• 조치결과: 현장 수정 및 재시공 완료\n• 감리확인: KCS 기준 적합 판정"
+        cell_a_desc.text = f"• 입력된 조치 설명: {description[:80]}\n• 판정: {review_status}"
 
         doc.add_paragraph()  # Spacer
 
@@ -189,11 +196,12 @@ class NCRActionSheetBuilder:
         sig_run.font.bold = True
         sig_run.font.color.rgb = RGBColor(0x1A, 0x36, 0x5D)
 
-        docx_filename = f"시정조치확인서_{now.strftime('%Y%m%d')}.docx"
+        output_stem = choose_output_stem(self.secure_dir, f"시정조치사진대지_{now.strftime('%Y%m%d')}")
+        docx_filename = f"{output_stem}.docx"
         docx_path = self.secure_dir / docx_filename
         doc.save(str(docx_path))
 
-        md_filename = f"시정조치확인서_{now.strftime('%Y%m%d')}.md"
+        md_filename = f"{output_stem}.md"
         md_path = self.secure_dir / md_filename
         with open(md_path, "w", encoding="utf-8") as f:
             f.write(report_md)
@@ -205,6 +213,7 @@ class NCRActionSheetBuilder:
             "issue_title": issue_title,
             "location": location,
             "action_date": date_str,
+            "verification_status": review_status,
             "docx_path": str(docx_path),
             "md_path": str(md_path),
             "source_anchor": f"{docx_filename} [Before/After 카드]",
@@ -220,12 +229,12 @@ def generate_before_after_sheet(
     before_img: str,
     after_img: str,
     description: str,
-    location: str = "지하 2층 1구역",
+    location: str = "미입력",
     action_date: str = "",
-    ncr_no: str = "SWCM-NCR-20260829-01",
-    project_name: str = "삼우씨엠 신축공사 CM현장",
-    inspector_name: str = "김수석 책임건설사업관리기술인",
-    contractor_name: str = "(주)대우건설 현장소장",
+    ncr_no: str = "",
+    project_name: str = "미입력 프로젝트",
+    inspector_name: str = "미입력 책임기술인",
+    contractor_name: str = "미입력 시공사 현장소장",
 ) -> Dict[str, Any]:
     return _action_builder.generate_sheet(
         issue_title=issue_title,

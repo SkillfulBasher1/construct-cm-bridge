@@ -20,7 +20,7 @@
 |  | Module 1. 외부 실시간 OpenAPI 커넥터 (External Legal & Standard Bridge)  |  |
 |  |  - 국가법령정보센터 API: 건축법, 주택법, 건진법 조문 실시간 검색        |  |
 |  |  - 국가건설기준센터(KCSC) API: KDS(설계기준), KCS(표준시방서) 규격 추출   |  |
-|  |  - Offline Mock/Cache Fallback: 심사 및 오프라인 환경 100% 무결성 보장  |  |
+|  |  - Offline Sample Fallback: source 필드로 실시간/로컬 응답 구분       |  |
 |  +-------------------------------------------------------------------------+  |
 |  +-------------------------------------------------------------------------+  |
 |  | Module 2. 로컬 보안 다차원 문서 파서 (Local Multi-Format Document Parser) |  |
@@ -77,7 +77,7 @@ sequenceDiagram
 
     Host->>MCP: fetch_kcsc_standard("KDS 21 30 00")
     MCP->>API: 건설기준 쿼리
-    API-->>MCP: 가설 흙막이 버팀보 법적 허용안전율 (Fs >= 1.25) 반환
+    API-->>MCP: 요청한 KDS 본문 및 출처 반환
 
     Host->>MCP: verify_calculation_safety(design=205.4, allowable=220.0, req_sf=1.25)
     MCP->>Math: Python 수치 검산 (Fs = 220.0 / 205.4 = 1.071 < 1.25)
@@ -96,24 +96,24 @@ sequenceDiagram
 
 ### Module 1: 법령 및 KCSC 기준 연동 (`openapi_client.py`)
 - **실시간 API 연동**: `law.go.kr` 및 `kcsc.re.kr` REST API를 통해 실시간 조문 텍스트 추출.
-- **Mock/Cache Fallback**: API 키가 없거나 네트워크가 차단된 오프라인 환경에서도 `data_cache/`를 통해 검증된 법령/KDS 기준을 즉각 반환하여 데모 무결성 보장.
+- **로컬 샘플 Fallback**: API 키가 없거나 조회에 실패하면 `data_cache/`의 번들 데이터를 반환하며, 최신 공식 원문으로 간주하지 않고 `source`를 명시합니다.
 
 ### Module 2: 로컬 다차원 문서 파서 (`doc_parser.py`)
 - **보안 샌드박스**: `Path.resolve().is_relative_to(SECURE_DATA_DIR)`를 통해 경로 트래버설 공격 방어.
-- **HWPX 지원**: 한글 표준 문서(HWPX)의 Zip-XML 구조에서 `hp:tbl`, `hp:tr`, `hp:tc`를 순회하여 마크다운 표 및 단락 텍스트 완벽 복원.
-- **XLSX / DOCX / PPTX / PDF 지원**: 수치 데이터 시트 및 프레젠테이션, 문서 텍스트 정밀 추출.
+- **HWPX 지원**: 한글 표준 문서(HWPX)의 Zip-XML 구조에서 단락과 표 텍스트를 추출합니다.
+- **XLSX / XLSM / DOCX / PPTX / PDF / TXT / MD / JSON 지원**: 지원 형식의 텍스트와 표를 가능한 범위에서 추출합니다. 스캔 PDF는 별도 OCR 확인이 필요할 수 있습니다.
 
 ### Module 3: 다분야 수치 검산 및 리포트 생성기 (`formula_engine.py`, `docx_exporter.py`)
 - **5대 공종 지원**:
-  1. 토목/구조: 버팀보 축력 및 좌굴, 지반 앵커 인장, 히빙/보일링, 전도/활동 안전율
-  2. 기계/설비: 펌프 양정 여유율, 배관 마찰손실, 필요 환기량
-  3. 소방: 옥내소화전/스프링클러 유효수량, 헤드 방수량 ($K\sqrt{10P}$), 제연풍량
-  4. 전기/통신: 3상/단상 선로 전압강하율, 변압기 부하율 및 수용률, 케이블 허용전류
-  5. 건축: 외벽 열관류율($U$-value), 단열재 두께 기준, 직통계단 보행거리
+  1. 토목/구조: 일반 안전율, 버팀보 좌굴 안전율, 지반 앵커 인장 안전율
+  2. 기계/설비: 펌프 양정 여유율, 필요 환기량
+  3. 소방: 옥내소화전 유효저수량, 스프링클러 헤드 방수량 ($K\sqrt{10P}$)
+  4. 전기/통신: 3상 선로 전압강하율, 변압기 부하율
+  5. 건축: 외벽 열관류율($U$-value)
 - **AST Safe Eval**: 악의적 코드 실행 없이 순수 공학 수식만을 안전하게 동적 연산.
 - **삼우씨엠 표준 Word 리포트**: Navy 색상 헤더, 4단 3자 대조표, PASS/FAIL 상태 배지, 공식 날인 서식 자동 반영.
 
 ---
 
 ## 4. 사내 AI 시스템(SAI)으로의 이식성
-본 MCP 서버의 코어 로직(`src/samwoo_cm_bridge/core/`)은 FastMCP와 완전히 디커플링되어 있어, 사내 건설특화 AI(SAI) 백엔드(FastAPI)의 서비스 모듈로 코드 수정 없이 100% 즉각 임포트 및 재사용이 가능합니다.
+코어 로직(`src/samwoo_cm_bridge/core/`)은 FastMCP 도구 래퍼와 분리되어 있습니다. 다른 백엔드로 이식할 때는 데이터 경로, 출력 저장소, API 자격증명 및 책임기술인 승인 흐름을 해당 환경에 맞게 구성해야 합니다.
