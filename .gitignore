@@ -26,3 +26,7 @@ secure_local_data/E2E_*.md
 secure_local_data/.cache/
 secure_local_data/summaries/
 secure_local_data/project_memory.db
+
+# Proposal Word Document (Kept local, excluded from Git)
+*.docx
+!secure_local_data/sample_*.docx
