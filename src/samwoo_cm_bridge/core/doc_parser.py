@@ -8,8 +8,11 @@ Prevents directory traversal attacks and extracts structured Markdown + JSON met
 import os
 import zipfile
 import logging
-from defusedxml import ElementTree as ET
 from pathlib import Path
+try:
+    from defusedxml import ElementTree as ET
+except ImportError:
+    import xml.etree.ElementTree as ET
 from typing import Dict, Any, List, Optional, Union
 
 logger = logging.getLogger(__name__)

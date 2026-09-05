@@ -9,10 +9,13 @@ Provides automatic offline caching and Mock fallback for robust judging and demo
 import os
 import json
 import html
-import logging
 import re
-from defusedxml import ElementTree as ET
+import logging
 from pathlib import Path
+try:
+    from defusedxml import ElementTree as ET
+except ImportError:
+    import xml.etree.ElementTree as ET
 from typing import Dict, Any, Optional
 
 logger = logging.getLogger(__name__)
