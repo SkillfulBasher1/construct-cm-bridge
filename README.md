@@ -121,7 +121,46 @@ python -m construct_cm_bridge.cli kcsc "KDS 21 30 00"
 
 ---
 
-## 🔌 MCP 클라이언트 연동 (Claude Desktop / Cursor / VS Code)
+## 💬 AI Agent 대화형 자연어 연동 안내 (Natural Language Prompts)
+
+현장 감리원이나 일반 사용자는 복잡한 CLI 명령어나 설정 파일을 다룰 필요 없이, **AI Agent(Claude, Cursor, 사내 AI 등) 채팅창에 평소 말하듯 자연어로 명령**하여 API를 연결하고 로컬 문서를 검토할 수 있습니다.
+
+### 1. 외부 공인 API 연결 명령
+> **사용자 프롬프트**:  
+> *"GitHub(`SkillfulBasher1/construct-cm-bridge`)에 있는 국가법령정보센터 및 KCSC 건설기준 API를 연결해줘."*
+
+* **AI Agent 동작**:
+  * GitHub 저장소의 표준 MCP 명세(`server.py`) 및 공인 API 클라이언트를 호출 가능한 도구로 자동 인식.
+  * 최신 법제처 법령 및 국토부 KDS/KCS 건설기준을 실시간 질의·검색할 수 있는 상태로 즉시 활성화합니다.
+
+---
+
+### 2. 로컬 문서 검토 폴더 지정 및 교차 검토 명령
+> **사용자 프롬프트**:  
+> *"내 PC의 `secure_local_data/`(현장도서 폴더)를 지정해서, 이번에 시공사가 제출한 시공계획서(HWPX)와 구조계산서(XLSX)를 읽고 KDS 기준과 교차 검토해줘."*
+
+* **AI Agent 동작**:
+  * 지정된 로컬 격리 폴더(`secure_local_data/`) 내 HWPX(표/본문), XLSX(수식/수치) 파일을 로컬에서 안전하게 파싱 (외부 서버 전송 Zero).
+  * KDS 기준과 특기시방서 요구조건을 대조 검증하고, 오차나 위반 사항을 정리한 **표준 4단 대비표(검토항목 | 법령·기준 | 시방서 | 시공사제출값 | 판정) 형태의 감리의견서 초안**을 자동 작성합니다.
+
+---
+
+### 3. 실무 대표 대화 시나리오 예시
+```text
+[사용자] "construct-cm-bridge API 연결하고, 현장 폴더의 'sample_과업지시서_특기시방.hwpx'와 'sample_가설흙막이_구조계산서.xlsx' 읽어서 버팀보 좌굴 안전율 검산해줘."
+
+[AI Agent]
+1. 국가건설기준 KDS 21 30 00 API 실시간 조회 (기준 안전율: 1.50 이상)
+2. 로컬 HWPX 시방서 파싱: 발주처 특기시방 안전율 규정 확인 (F.S = 1.60)
+3. 로컬 XLSX 구조계산서 파싱 및 AST 수치 검산: 산출 안전율 1.35 감지
+4. 결과: [부적합 판정] - 발주처 시방(1.60) 및 KDS 기준(1.50) 미달 상세 4단 대비표 및 조치요구서 초안 자동 출력
+```
+
+---
+
+## 🔌 MCP 클라이언트 연동 (Claude Desktop / Cursor / Antigravity)
+
+AI Agent가 위의 자연어 명령을 도구 호출(Tool Calling)로 수행할 수 있도록 클라이언트 설정에 등록합니다.
 
 ### Claude Desktop 연동
 `%APPDATA%\Claude\claude_desktop_config.json`에 다음 설정을 추가합니다:
@@ -143,6 +182,19 @@ python -m construct_cm_bridge.cli kcsc "KDS 21 30 00"
   }
 }
 ```
+
+### Cursor / VS Code 연동 (`mcp_configs/cursor_mcp_config.json`)
+```json
+{
+  "mcpServers": {
+    "construct-cm-bridge": {
+      "command": "python",
+      "args": ["-m", "construct_cm_bridge.cli", "serve"]
+    }
+  }
+}
+```
+
 
 ---
 
