@@ -2,7 +2,7 @@
 
 import os
 import pytest
-from samwoo_cm_bridge.core.comprehensive_review_pipeline import (
+from construct_cm_bridge.core.comprehensive_review_pipeline import (
     ComprehensiveReviewPipeline,
     run_comprehensive_review,
 )

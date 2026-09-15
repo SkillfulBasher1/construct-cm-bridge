@@ -11,12 +11,12 @@ import os
 import time
 import pytest
 from pathlib import Path
-from samwoo_cm_bridge.core.doc_cache_manager import (
+from construct_cm_bridge.core.doc_cache_manager import (
     DocumentCacheManager,
     get_cached_doc_summary,
 )
-from samwoo_cm_bridge.core.doc_parser import DocumentParser, SECURE_DATA_DIR
-from samwoo_cm_bridge.core.daily_log_generator import (
+from construct_cm_bridge.core.doc_parser import DocumentParser, SECURE_DATA_DIR
+from construct_cm_bridge.core.daily_log_generator import (
     DailyLogGenerator,
     generate_daily_cm_log,
 )

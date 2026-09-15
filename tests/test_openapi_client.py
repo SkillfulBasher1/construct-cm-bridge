@@ -1,7 +1,7 @@
 """Tests for OpenAPI Client (Module 1)"""
 
 import pytest
-from samwoo_cm_bridge.core.openapi_client import OpenApiClient, fetch_national_law, fetch_kcsc_standard
+from construct_cm_bridge.core.openapi_client import OpenApiClient, fetch_national_law, fetch_kcsc_standard
 
 
 def test_fetch_national_law_mock_fallback():

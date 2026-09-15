@@ -7,7 +7,7 @@ Aggregates all project records from SQLite Memory DB (`project_memory.db`) and l
 - Compiles Section 4: Safety Management & Daily TBM History
 - Compiles Section 5: Corrective Actions (NCR) & Design Changes / VE History
 - Compiles Section 6: Final Chief CM Completion Opinion
-Generates official Samwoo CM '준공 감리완료보고서 (.docx / .md)'.
+Generates official Construct CM '준공 감리완료보고서 (.docx / .md)'.
 """
 
 import logging

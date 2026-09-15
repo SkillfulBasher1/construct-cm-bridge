@@ -1,7 +1,7 @@
 """Tests for Adaptive Checklist Generator and Plan Evaluator"""
 
 import pytest
-from samwoo_cm_bridge.core.adaptive_checklist_engine import (
+from construct_cm_bridge.core.adaptive_checklist_engine import (
     AdaptiveChecklistEngine,
     generate_and_evaluate_checklist,
 )

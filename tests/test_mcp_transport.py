@@ -5,7 +5,7 @@ import json
 import pytest
 from fastmcp import Client
 
-from samwoo_cm_bridge.server import mcp
+from construct_cm_bridge.server import mcp
 
 
 @pytest.mark.asyncio

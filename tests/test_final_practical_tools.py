@@ -8,19 +8,19 @@
 
 import os
 import pytest
-from samwoo_cm_bridge.core.concrete_qc_tracker import (
+from construct_cm_bridge.core.concrete_qc_tracker import (
     ConcreteQCTracker,
     register_concrete_pour,
 )
-from samwoo_cm_bridge.core.ncr_action_sheet_builder import (
+from construct_cm_bridge.core.ncr_action_sheet_builder import (
     NCRActionSheetBuilder,
     generate_before_after_sheet,
 )
-from samwoo_cm_bridge.core.subcontract_auditor import (
+from construct_cm_bridge.core.subcontract_auditor import (
     SubcontractAuditor,
     audit_subcontract_agreement,
 )
-from samwoo_cm_bridge.core.cm_final_report_assembler import (
+from construct_cm_bridge.core.cm_final_report_assembler import (
     CMFinalReportAssembler,
     assemble_cm_final_report,
 )

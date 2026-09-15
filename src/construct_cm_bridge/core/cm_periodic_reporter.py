@@ -1,7 +1,7 @@
 """CM Periodic Report Synthesizer (Module 7 - Periodic Reporter)
 
 Synthesizes project memory, completed technical reviews, pay application audits,
-and owner instruction tracking into Samwoo CM standard Weekly / Monthly CM Reports (.docx / .md).
+and owner instruction tracking into Construct CM standard Weekly / Monthly CM Reports (.docx / .md).
 """
 
 import os
@@ -15,7 +15,7 @@ from .project_memory_engine import get_all_project_instructions
 
 
 class PeriodicReporter:
-    """Generates official Samwoo CM Periodic (Weekly/Monthly) Reports."""
+    """Generates official Construct CM Periodic (Weekly/Monthly) Reports."""
 
     def __init__(self, exporter: Optional[DocxExporter] = None):
         self.exporter = exporter or DocxExporter()

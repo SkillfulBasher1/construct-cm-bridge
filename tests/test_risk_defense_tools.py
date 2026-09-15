@@ -7,15 +7,15 @@
 
 import os
 import pytest
-from samwoo_cm_bridge.core.fire_hazard_conflict_detector import (
+from construct_cm_bridge.core.fire_hazard_conflict_detector import (
     FireHazardConflictDetector,
     check_concurrent_work_fire_hazard,
 )
-from samwoo_cm_bridge.core.video_record_manager import (
+from construct_cm_bridge.core.video_record_manager import (
     VideoRecordManager,
     generate_video_recording_log,
 )
-from samwoo_cm_bridge.core.weather_stop_work_trigger import (
+from construct_cm_bridge.core.weather_stop_work_trigger import (
     WeatherStopWorkTrigger,
     issue_weather_stop_work_order,
 )

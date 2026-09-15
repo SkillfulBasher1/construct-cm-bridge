@@ -6,7 +6,7 @@ Extracts mandatory submission requirements from Owner RFP / Special Specs (HWPX/
 - Maps extracted requirements against files present in local storage (`secure_local_data/`)
 - Evaluates submission status:
   * [접수완료 (RECEIVED) / 미접수·누락 (MISSING) / 보완필요 (MODIFY)]
-- Generates official Samwoo CM "제출도서 접수 및 검토현황표 (.docx / .md)"
+- Generates official Construct CM "제출도서 접수 및 검토현황표 (.docx / .md)"
 """
 
 import os

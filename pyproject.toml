@@ -30,4 +30,4 @@ dev = [
 
 [project.scripts]
 construct-cm-bridge = "construct_cm_bridge.cli:main"
-samwoo-cm-bridge = "samwoo_cm_bridge.cli:main"
+

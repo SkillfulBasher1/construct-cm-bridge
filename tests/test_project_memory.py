@@ -1,12 +1,12 @@
 """Tests for Project Memory Engine and Design Change Tracker"""
 
 import pytest
-from samwoo_cm_bridge.core.project_memory_engine import (
+from construct_cm_bridge.core.project_memory_engine import (
     ProjectMemoryEngine,
     index_project_instruction,
     search_project_memory,
 )
-from samwoo_cm_bridge.core.design_change_tracker import (
+from construct_cm_bridge.core.design_change_tracker import (
     DesignChangeTracker,
     track_design_changes,
 )

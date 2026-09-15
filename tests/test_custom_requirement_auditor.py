@@ -2,7 +2,7 @@
 
 import os
 import pytest
-from samwoo_cm_bridge.core.custom_requirement_auditor import (
+from construct_cm_bridge.core.custom_requirement_auditor import (
     CustomRequirementAuditor,
     audit_custom_spec_requirements,
 )

@@ -1,7 +1,7 @@
 """Tests for Batch Cross-Checker Module"""
 
 import pytest
-from samwoo_cm_bridge.core.batch_cross_checker import BatchCrossChecker, batch_cross_check_documents
+from construct_cm_bridge.core.batch_cross_checker import BatchCrossChecker, batch_cross_check_documents
 
 
 def test_batch_cross_check_bundle():

@@ -1,6 +1,6 @@
 """Daily CM Supervision Log Generator with Session Memory (Module 12)
 
-Generates official Samwoo CM Daily Supervision Log (.docx / .md) with smart daily session appending:
+Generates official Construct CM Daily Supervision Log (.docx / .md) with smart daily session appending:
 - Maintains a real-time daily session buffer (`secure_local_data/summaries/DAILY_LOG_YYYY-MM-DD.json`)
 - If log entries (morning inspection, afternoon concrete pour) are entered multiple times on the same day:
   automatically merges activities, inspections, workers, and equipment without overwriting or duplicating.
@@ -29,7 +29,7 @@ SUMMARIES_DIR_NAME = "summaries"
 
 
 class DailyLogGenerator:
-    """Generates official Samwoo CM Daily Supervision Work Log with Session Append/Update."""
+    """Generates official Construct CM Daily Supervision Work Log with Session Append/Update."""
 
     def __init__(self, exporter: Optional[DocxExporter] = None, secure_dir: Optional[Union[str, Path]] = None):
         self.secure_dir = Path(secure_dir).resolve() if secure_dir else SECURE_DATA_DIR.resolve()

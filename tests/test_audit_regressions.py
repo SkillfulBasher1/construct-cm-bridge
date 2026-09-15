@@ -9,19 +9,19 @@ import pytest
 from docx import Document
 from pypdf import PdfWriter
 
-from samwoo_cm_bridge import server
-from samwoo_cm_bridge.core.doc_cache_manager import DocumentCacheManager
-from samwoo_cm_bridge.core.doc_parser import DocumentParser, SecurityError
-from samwoo_cm_bridge.core.docx_exporter import DocxExporter
-from samwoo_cm_bridge.core.equipment_quantity_auditor import EquipmentQuantityAuditor
-from samwoo_cm_bridge.core.flexible_schedule_analyzer import FlexibleScheduleAnalyzer
-from samwoo_cm_bridge.core.fire_hazard_conflict_detector import FireHazardConflictDetector
-from samwoo_cm_bridge.core.formula_engine import safe_eval
-from samwoo_cm_bridge.core.inspection_ncr_generator import InspectionNCRGenerator
-from samwoo_cm_bridge.core.ocr_parser import MaterialCertOCRParser
-from samwoo_cm_bridge.core.project_memory_engine import ProjectMemoryEngine
-from samwoo_cm_bridge.core.video_record_manager import VideoRecordManager
-from samwoo_cm_bridge.core.weather_stop_work_trigger import WeatherStopWorkTrigger
+from construct_cm_bridge import server
+from construct_cm_bridge.core.doc_cache_manager import DocumentCacheManager
+from construct_cm_bridge.core.doc_parser import DocumentParser, SecurityError
+from construct_cm_bridge.core.docx_exporter import DocxExporter
+from construct_cm_bridge.core.equipment_quantity_auditor import EquipmentQuantityAuditor
+from construct_cm_bridge.core.flexible_schedule_analyzer import FlexibleScheduleAnalyzer
+from construct_cm_bridge.core.fire_hazard_conflict_detector import FireHazardConflictDetector
+from construct_cm_bridge.core.formula_engine import safe_eval
+from construct_cm_bridge.core.inspection_ncr_generator import InspectionNCRGenerator
+from construct_cm_bridge.core.ocr_parser import MaterialCertOCRParser
+from construct_cm_bridge.core.project_memory_engine import ProjectMemoryEngine
+from construct_cm_bridge.core.video_record_manager import VideoRecordManager
+from construct_cm_bridge.core.weather_stop_work_trigger import WeatherStopWorkTrigger
 
 
 def test_cached_document_cannot_bypass_basename_validation(tmp_path):
@@ -113,7 +113,7 @@ def test_server_formula_wrapper_rejects_bad_json_and_preserves_zero():
 
 
 def test_text_replace_with_unequal_lengths_keeps_all_changes(tmp_path):
-    from samwoo_cm_bridge.core.diff_audit_engine import DiffAuditEngine
+    from construct_cm_bridge.core.diff_audit_engine import DiffAuditEngine
 
     (tmp_path / "base.txt").write_text("첫 문장\n삭제될 안전 기준\n", encoding="utf-8")
     (tmp_path / "target.txt").write_text("바뀐 문장\n", encoding="utf-8")

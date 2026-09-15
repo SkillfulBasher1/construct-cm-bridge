@@ -2,7 +2,7 @@
 
 import json
 from pathlib import Path
-from samwoo_cm_bridge.server import (
+from construct_cm_bridge.server import (
     fetch_national_law,
     fetch_kcsc_standard,
     read_local_project_file,

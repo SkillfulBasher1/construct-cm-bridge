@@ -2,7 +2,7 @@
 
 import os
 from pathlib import Path
-from samwoo_cm_bridge.core.docx_exporter import export_review_document
+from construct_cm_bridge.core.docx_exporter import export_review_document
 
 
 def test_export_review_document(tmp_path):

@@ -1,8 +1,8 @@
 """Tests for Precision Source Coordinate Anchoring (HWPX, XLSX, DOCX, Law/KCSC)"""
 
 import pytest
-from samwoo_cm_bridge.core.doc_parser import DocumentParser, get_anchored_chunks
-from samwoo_cm_bridge.core.openapi_client import OpenApiClient
+from construct_cm_bridge.core.doc_parser import DocumentParser, get_anchored_chunks
+from construct_cm_bridge.core.openapi_client import OpenApiClient
 
 
 def test_hwpx_source_anchoring():

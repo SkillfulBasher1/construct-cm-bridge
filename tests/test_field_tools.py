@@ -2,23 +2,23 @@
 
 import os
 import pytest
-from samwoo_cm_bridge.core.ocr_parser import (
+from construct_cm_bridge.core.ocr_parser import (
     MaterialCertOCRParser,
     parse_scanned_material_cert,
 )
-from samwoo_cm_bridge.core.daily_log_generator import (
+from construct_cm_bridge.core.daily_log_generator import (
     DailyLogGenerator,
     generate_daily_cm_log,
 )
-from samwoo_cm_bridge.core.flexible_schedule_analyzer import (
+from construct_cm_bridge.core.flexible_schedule_analyzer import (
     FlexibleScheduleAnalyzer,
     analyze_custom_schedule,
 )
-from samwoo_cm_bridge.core.safety_tbm_generator import (
+from construct_cm_bridge.core.safety_tbm_generator import (
     SafetyTBMGenerator,
     generate_daily_tbm_safety,
 )
-from samwoo_cm_bridge.core.inspection_ncr_generator import (
+from construct_cm_bridge.core.inspection_ncr_generator import (
     InspectionNCRGenerator,
     generate_inspection_sheet,
     draft_ncr_correction_order,

@@ -1,7 +1,7 @@
 """Tests for Semantic Standard Searcher Module"""
 
 import pytest
-from samwoo_cm_bridge.core.semantic_standard_searcher import (
+from construct_cm_bridge.core.semantic_standard_searcher import (
     SemanticStandardSearcher,
     search_standards_by_keyword,
 )

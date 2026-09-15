@@ -1,1 +1,1 @@
-"""Samwoo-CM-Bridge Tests Suite"""
+"""Construct-CM-Bridge Tests Suite"""

@@ -1,7 +1,7 @@
 """Tests for Diff and Tampering Audit Engine"""
 
 import pytest
-from samwoo_cm_bridge.core.diff_audit_engine import (
+from construct_cm_bridge.core.diff_audit_engine import (
     DiffAuditEngine,
     audit_document_diff,
 )

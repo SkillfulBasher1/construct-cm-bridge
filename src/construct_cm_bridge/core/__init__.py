@@ -1,4 +1,4 @@
-"""Core modules for Samwoo-CM-Bridge (SAI-portable components)"""
+"""Core modules for Construct-CM-Bridge (SAI-portable components)"""
 
 from .openapi_client import OpenApiClient, fetch_national_law, fetch_kcsc_standard
 from .doc_parser import DocumentParser, read_local_project_file, list_secure_local_files

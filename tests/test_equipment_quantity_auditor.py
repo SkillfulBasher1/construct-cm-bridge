@@ -2,7 +2,7 @@
 
 import os
 import pytest
-from samwoo_cm_bridge.core.equipment_quantity_auditor import (
+from construct_cm_bridge.core.equipment_quantity_auditor import (
     EquipmentQuantityAuditor,
     audit_calculation_quantity_drawing_match,
 )

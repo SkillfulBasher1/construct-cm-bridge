@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 # Default secure working directory (supports environment variable override)
 SECURE_DATA_DIR = Path(
-    os.environ.get("SAMWOO_DATA_DIR")
+    os.environ.get("CONSTRUCT_CM_DATA_DIR")
     or os.environ.get("CONSTRUCT_MCP_DATA_DIR")
     or (Path(__file__).resolve().parent.parent.parent.parent / "secure_local_data")
 )

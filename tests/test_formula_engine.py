@@ -1,7 +1,7 @@
 """Tests for Multi-Disciplinary Formula Engine (Module 3)"""
 
 import pytest
-from samwoo_cm_bridge.core.formula_engine import (
+from construct_cm_bridge.core.formula_engine import (
     FormulaEngine,
     verify_calculation_safety,
     safe_eval,

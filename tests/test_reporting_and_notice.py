@@ -2,11 +2,11 @@
 
 import os
 import pytest
-from samwoo_cm_bridge.core.cm_periodic_reporter import (
+from construct_cm_bridge.core.cm_periodic_reporter import (
     PeriodicReporter,
     generate_weekly_cm_report,
 )
-from samwoo_cm_bridge.core.official_letter_generator import (
+from construct_cm_bridge.core.official_letter_generator import (
     OfficialLetterGenerator,
     draft_official_notice,
 )

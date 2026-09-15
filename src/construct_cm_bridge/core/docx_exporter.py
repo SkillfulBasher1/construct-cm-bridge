@@ -1,6 +1,6 @@
-"""Samwoo CM Standard Review Document Exporter (Module 3 - Exporter)
+"""Construct CM Standard Review Document Exporter (Module 3 - Exporter)
 
-Generates Samwoo CM style inspection/review drafts in both Word (.docx) and Markdown (.md).
+Generates Construct CM style inspection/review drafts in both Word (.docx) and Markdown (.md).
 Implements standard 4-column 3-way cross examination tables, formula verification breakdowns,
 and review signature placeholders.
 """
@@ -113,7 +113,7 @@ class DocxExporter:
         title_run.font.name = "맑은 고딕"
         title_run.font.size = Pt(20)
         title_run.font.bold = True
-        title_run.font.color.rgb = RGBColor(0x1A, 0x36, 0x5D)  # Samwoo Deep Navy
+        title_run.font.color.rgb = RGBColor(0x1A, 0x36, 0x5D)  # Construct Deep Navy
 
         sub_p = doc.add_paragraph()
         sub_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -264,7 +264,7 @@ class DocxExporter:
             run.font.size = Pt(9.5)
 
     def _render_markdown_table_to_docx(self, doc: docx.Document, table_lines: List[str]):
-        """Renders parsed markdown table lines with professional Samwoo CM styling."""
+        """Renders parsed markdown table lines with professional Construct CM styling."""
         if not table_lines:
             return
 

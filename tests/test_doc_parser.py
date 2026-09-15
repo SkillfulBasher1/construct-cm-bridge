@@ -1,7 +1,7 @@
 """Tests for Document Parser (Module 2)"""
 
 import pytest
-from samwoo_cm_bridge.core.doc_parser import (
+from construct_cm_bridge.core.doc_parser import (
     DocumentParser,
     read_local_project_file,
     list_secure_local_files,
