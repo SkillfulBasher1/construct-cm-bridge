@@ -45,6 +45,11 @@
 5. **기존 사내 AI 시스템(FastAPI/RAG) 즉시 이식성**
    - 코어 모듈(`core/`)이 FastMCP와 완전히 분리되어 있어 사내 FastAPI 백엔드에 코드 수정 없이 Action Engine으로 바로 이식 가능.
 
+6. **팬텀 문서 및 허위 근거 차단 하네스 (Anti-Phantom & Direct-Quote Protocol)**
+   - **실존 디렉터리 검증 선행(Fail-Closed)**: `list_secure_local_files`로 실제 파일 실존이 확인되지 않으면 검토 착수 및 가상 파일 상상 원천 금지.
+   - **원문 20자 이상 직인용(Verbatim Quote)**: 임의로 조항 번호나 수치를 날조하지 못하도록 파싱된 원문 문장을 큰따옴표(`"..."`)로 직접 인용한 근거만 유효 처리.
+   - **근거 부재 공식 인정**: 원문에 근거가 없으면 지어내지 않고 `NO_EVIDENCE_FOUND` 및 `REVIEW_REQUIRED`로 정직하게 종결.
+
 ---
 
 ## 📂 프로젝트 디렉토리 구조
