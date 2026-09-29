@@ -38,3 +38,10 @@ secure_local_data/콘크리트_품질관리대장.xlsx
 # Proposal Word Document (Kept local, excluded from Git)
 *.docx
 !secure_local_data/sample_*.docx
+
+# Local Databases & Binary PDFs (Excluded for copyright and size)
+*.db
+*.db-journal
+*.pdf
+data_cache/*.db
+

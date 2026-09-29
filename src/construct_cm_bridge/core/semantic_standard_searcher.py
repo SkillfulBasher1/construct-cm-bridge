@@ -7,6 +7,7 @@ Analyzes natural language engineering queries (e.g., '버팀보 허용응력', '
 - Core numeric thresholds and suggested Python verification formula hints.
 """
 
+import os
 import json
 import logging
 from typing import Dict, Any, List, Optional
@@ -78,6 +79,57 @@ class SemanticStandardSearcher:
                     "formula_hint": None,
                 })
 
+        # 3. Index Local PDF Knowledge DB if present (Dynamically populated from user PDF files)
+        pdf_db_candidates = [
+            Path(os.environ.get("PDF_KNOWLEDGE_DB", "secure_local_data/pdf_knowledge.db")),
+            Path(r"C:\Users\cmuser\Desktop\construct-cm-bridge\smart_handbook.db"),
+            Path("secure_local_data/smart_handbook.db"),
+        ]
+        for db_path in pdf_db_candidates:
+            if db_path.exists():
+                import sqlite3
+                try:
+                    with sqlite3.connect(db_path) as p_conn:
+                        p_cur = p_conn.cursor()
+                        # Check if generic pdf_pages table exists
+                        has_pdf_pages = p_cur.execute(
+                            "SELECT name FROM sqlite_master WHERE type='table' AND name='pdf_pages'"
+                        ).fetchone()
+                        if has_pdf_pages:
+                            for row in p_cur.execute(
+                                "SELECT filename, page_no, heading, content FROM pdf_pages WHERE char_length > 20"
+                            ).fetchall():
+                                fname, pno, heading, content = row
+                                self.corpus.append({
+                                    "type": "LOCAL_PDF_DOC",
+                                    "code": f"{fname} p.{pno}",
+                                    "title": f"[{fname}] {heading} (p.{pno})",
+                                    "category": "로컬참고도서",
+                                    "discipline": "기계/소방/건축",
+                                    "body": f"{fname} {heading} p.{pno} {content}",
+                                    "formula_hint": None,
+                                })
+
+                        # Fallback for custom checklist tables if present locally
+                        has_checklist = p_cur.execute(
+                            "SELECT name FROM sqlite_master WHERE type='table' AND name='handbook_inspection_checklist'"
+                        ).fetchone()
+                        if has_checklist:
+                            for row in p_cur.execute(
+                                "SELECT category, inspection_stage, item_name, detailed_check_criteria, inspection_scope, page_no FROM handbook_inspection_checklist"
+                            ).fetchall():
+                                cat, stage, item, criteria, scope, page = row
+                                self.corpus.append({
+                                    "type": "LOCAL_CHECKLIST",
+                                    "code": f"실무검측 p.{page}",
+                                    "title": f"[{cat}] {item} ({stage})",
+                                    "category": "시공확인기준",
+                                    "discipline": "기계/소방",
+                                    "body": f"실무검측지침 p.{page} {cat} {stage} {item} {criteria} {scope}",
+                                    "formula_hint": None,
+                                })
+                except Exception as e:
+                    logger.warning(f"Failed to index local PDF DB at {db_path}: {e}")
         # Synonyms dictionary for query expansion
         self.synonyms = {
             "버팀보": ["버팀보", "스트러트", "strut", "h-pile", "엄지말뚝", "흙막이", "좌굴", "지보공", "kds 21 30 00"],
@@ -90,6 +142,11 @@ class SemanticStandardSearcher:
             "변압기": ["변압기", "수용률", "부하율", "용량", "kec"],
             "열관류율": ["열관류율", "u-value", "단열재", "외벽", "에너지절약", "kds 41 10 00"],
             "안전관리계획": ["안전관리계획", "건진법", "62조", "10미터", "착공전"],
+            "에어컨": ["에어컨", "시스템에어컨", "냉매배관", "기밀시험", "진공시험", "드레인", "lhcs 31 25 15 30"],
+            "환기": ["환기", "전열교환기", "세대환기", "oa", "ea", "이격", "lhcs 31 25 20 05"],
+            "열선": ["열선", "발열선", "히팅케이블", "동파방지", "절연저항", "lhcs 31 20 05 10"],
+            "슬리브": ["슬리브", "관통슬리브", "지수날개", "지수판", "선매립", "코어링"],
+            "수압시험": ["수압시험", "만수시험", "수밀시험", "통수시험", "기압시험"],
         }
 
     def search_standards(
